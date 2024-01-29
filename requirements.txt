@@ -1,0 +1,11 @@
+argmaxtools
+transformers
+huggingface-hub
+evaluate
+datasets
+librosa
+soundfile
+jiwer
+tabulate
+mlx
+tiktoken
