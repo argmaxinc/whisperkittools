@@ -7,5 +7,6 @@ librosa
 soundfile
 jiwer
 tabulate
-mlx
 tiktoken
+mlx
+openai

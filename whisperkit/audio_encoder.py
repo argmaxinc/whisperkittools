@@ -7,12 +7,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from argmaxtools import _sdpa
+from argmaxtools.compress.sparse_outlier import DecomposedModule
 from argmaxtools.nn import Attention, AttentionType, LayerNorm
+from argmaxtools.utils import (linear_to_conv2d_map_attention,
+                               linear_to_conv2d_map_ffn)
 from transformers.activations import ACT2FN
 from transformers.models.whisper.configuration_whisper import WhisperConfig
 
 import whisperkit.tensor_typing as tt
-from argmaxtools.utils import linear_to_conv2d_map_attention, linear_to_conv2d_map_ffn
 
 # Scaled Dot-Product Attention (SDPA) implementation to use for WhisperAudioEncoder
 SDPA_IMPL = _sdpa.Cat
@@ -114,20 +116,49 @@ class WhisperAudioEncoder(nn.Module):
         return self.layer_norm(hidden_states)
 
     def pre_transformer_proj(self, melspectrogram_features: torch.Tensor) -> torch.Tensor:
-        hidden_states = F.gelu(F.conv2d(
-            melspectrogram_features,
-            self.conv1.weight.data[:, :, None, :],
-            self.conv1.bias.data,
-            padding=(0, 1),
-        ))
+        # TODO(atiorh): Fix the leaky abstraction caused here due to direct weight access
+        if isinstance(self.conv1, DecomposedModule):
+            hidden_states = F.gelu(F.conv2d(
+                melspectrogram_features,
+                self.conv1.outlier_module.weight.data[:, :, None, :],
+                torch.zeros_like(self.conv1.inlier_module.bias.data),
+                padding=(0, 1),
+            ) + F.conv2d(
+                melspectrogram_features,
+                self.conv1.inlier_module.weight.data[:, :, None, :],
+                self.conv1.inlier_module.bias.data,
+                padding=(0, 1),
+            ))
+        else:
+            hidden_states = F.gelu(F.conv2d(
+                melspectrogram_features,
+                self.conv1.weight.data[:, :, None, :],
+                self.conv1.bias.data,
+                padding=(0, 1),
+            ))
 
-        return F.gelu(F.conv2d(
-            hidden_states,
-            self.conv2.weight.data[:, :, None, :],
-            self.conv2.bias.data,
-            padding=(0, 1),
-            stride=2
-        ))
+        if isinstance(self.conv2, DecomposedModule):
+            return F.gelu(F.conv2d(
+                hidden_states,
+                self.conv2.outlier_module.weight.data[:, :, None, :],
+                torch.zeros_like(self.conv2.inlier_module.bias.data),
+                padding=(0, 1),
+                stride=2
+            ) + F.conv2d(
+                hidden_states,
+                self.conv2.inlier_module.weight.data[:, :, None, :],
+                self.conv2.inlier_module.bias.data,
+                padding=(0, 1),
+                stride=2
+            ))
+        else:
+            return F.gelu(F.conv2d(
+                hidden_states,
+                self.conv2.weight.data[:, :, None, :],
+                self.conv2.bias.data,
+                padding=(0, 1),
+                stride=2
+            ))
 
 
 MEL_FILTERS_URL = \

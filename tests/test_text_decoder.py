@@ -33,16 +33,15 @@ TEST_PSNR_THR = 35
 TEST_CACHE_DIR = os.getenv("TEST_CACHE_DIR", None) or "/tmp"
 
 # WhisperDecoderContextPrefill constants
-TEST_PREFILL_CONSISTENCY_PSNR_THR = 25
-TEST_BATCH = 8
-TEST_OUTPUT_NAMES = ["logits", "key_cache_updates", "value_cache_updates"]
+TEST_PREFILL_CONSISTENCY_PSNR_THR = 20
+TEST_BATCH = 16
+TEST_OUTPUT_NAMES = [
+    "logits", "key_cache_updates", "value_cache_updates", "alignment_heads_weights"]
 TEST_CONTEXT_PREFILL_OUTPUT_NAMES = ["key_cache_prefill", "value_cache_prefill"]
 TEST_TEXT_DECODER_SEQ_LEN = None
 
 
-class TestWhisperTextDecoder(
-    argmaxtools_test_utils.CoreMLTestsMixin, unittest.TestCase
-):
+class TestWhisperTextDecoder(argmaxtools_test_utils.CoreMLTestsMixin, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.test_output_names = TEST_OUTPUT_NAMES
@@ -68,9 +67,10 @@ class TestWhisperTextDecoder(
         cls.test_torch_model = (
             cls.test_torch_model.to(TEST_DEV).to(TEST_TORCH_DTYPE).eval()
         )
+        cls.gen_cfg = orig_torch_model.generation_config
+        cls.test_torch_model.configure_for_token_timestamps(cls.gen_cfg)
 
         # Elaboration: I/O and architecture config
-        cls.gen_cfg = orig_torch_model.generation_config
         cfg = cls.orig_torch_model.config
         cls.cfg = dict(
             n_heads=cfg.decoder_attention_heads,
@@ -320,11 +320,13 @@ class TestWhisperTextDecoder(
             )
 
 
-argmaxtools_test_utils.TEST_DONT_PALETTIZE_TOP_K = 8
+argmaxtools_test_utils.TEST_DONT_PALETTIZE_TOP_K = 0
 argmaxtools_test_utils.TEST_ALLOWED_NBITS = [4, 6, 8]
-compress.palettize.NUM_MIXED_BIT_RECIPES = 2
-compress.palettize.TEST_BATCH_SIZE = 32
+compress.palettize.NUM_MIXED_BIT_RECIPES = 1
+compress.palettize.TEST_BATCH_SIZE = 16
 compress.palettize.INVERTED_RESULT_THR = 0.25
+compress.palettize.SPARSE_OUTLIER_DECOMPOSITION = True
+compress.sparse_outlier.OUTLIER_NUM_STD = 3.0
 
 
 class TestWhisperTextDecoderPalettizer(

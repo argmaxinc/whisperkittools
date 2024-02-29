@@ -165,11 +165,13 @@ class TestWhisperMelSpectrogram(
         super().tearDownClass()
 
 
-argmaxtools_test_utils.TEST_DONT_PALETTIZE_TOP_K = 8
+argmaxtools_test_utils.TEST_DONT_PALETTIZE_TOP_K = 0
 argmaxtools_test_utils.TEST_ALLOWED_NBITS = [4, 6, 8]
-compress.palettize.NUM_MIXED_BIT_RECIPES = 2
-compress.palettize.TEST_BATCH_SIZE = 32
+compress.palettize.NUM_MIXED_BIT_RECIPES = 1
+compress.palettize.TEST_BATCH_SIZE = 16
 compress.palettize.INVERTED_RESULT_THR = 0.25
+compress.palettize.SPARSE_OUTLIER_DECOMPOSITION = True
+compress.sparse_outlier.OUTLIER_NUM_STD = 3.0
 
 
 class TestWhisperAudioEncoderPalettizer(

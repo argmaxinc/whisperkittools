@@ -57,7 +57,7 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
             "git rev-parse HEAD",
             stdout=subprocess.PIPE,
             shell=True
-        ).stdout.decode('utf-8').strip()
+        ).stdout.decode('utf-8').strip()[:7]
 
         cls.results = {
             "results": evaluate(
@@ -85,11 +85,11 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
                 "Average WER failed sanity check: "
                 f"{average_wer} > {AVG_WER_SANITY_CHECK_THR}")
 
-        if TEST_UPLOAD_RESULTS:
-            out_path = os.path.join(TEST_CACHE_DIR, "results.json")
-            with open(out_path, "w") as f:
-                json.dump(cls.results, f, indent=2)
+        out_path = os.path.join(TEST_CACHE_DIR, "results.json")
+        with open(out_path, "w") as f:
+            json.dump(cls.results, f, indent=2)
 
+        if TEST_UPLOAD_RESULTS:
             results_dir = os.path.join(
                 TEST_PIPELINE,
                 TEST_MODEL_VERSION.replace("/", "_"),
@@ -105,7 +105,7 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
                 repo_id=EVALS_REPO_ID,
                 repo_type="dataset",
                 commit_message=f"whisperkittools {wkt_commit_hash}: "
-                               f"Eval{TEST_MODEL_VERSION} on {TEST_DATASET_NAME}",
+                               f"Eval {TEST_MODEL_VERSION} on {TEST_DATASET_NAME}",
             )
         else:
             logger.info(
@@ -131,7 +131,6 @@ def main(args):
     TEST_MODEL_COMMIT_HASH = args.model_commit_hash
     TEST_NUM_PROC = args.num_proc
     TEST_UPLOAD_RESULTS = args.upload_results
-    # TEST_QOI_REFERENCE = args.quality_of_inference_reference
 
     with argmaxtools_test_utils._get_test_cache_dir(
         args.persistent_cache_dir
@@ -159,7 +158,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--pipeline",
         type=str,
-        choices=("WhisperKit", "whisper.cpp", "WhisperMLX"),
+        choices=("WhisperKit", "whisper.cpp", "WhisperMLX", "WhisperOpenAIAPI"),
         required=True
     )
     parser.add_argument("--num-samples", type=int, default=-1)

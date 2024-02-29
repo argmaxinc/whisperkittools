@@ -7,13 +7,13 @@ import os
 WHISPERKIT_REPO_OWNER = "argmaxinc"
 WHISPERKIT_REPO_NAME = "WhisperKit"
 COMPRESSION_REPO_ID = "argmaxinc/compression_artifacts"
-MODEL_REPO_ID = os.getenv("MODEL_REPO_ID", None) or "argmaxinc/whisperkit-coreml"
-EVALS_REPO_ID = os.getenv("EVALS_REPO_ID", None) or "argmaxinc/whisperkit-evals"
+MODEL_REPO_ID = os.getenv("MODEL_REPO_ID", None) or "argmaxinc/whisperkit-coreml-staging"
+EVALS_REPO_ID = os.getenv("EVALS_REPO_ID", None) or "argmaxinc/whisperkit-evals-staging"
 
 # Override these to register your own dataset
 DATASET_REPO_OWNER = os.getenv("DATASET_REPO_OWNER", None) or "argmaxinc"
 EVAL_DATASETS = [
-    "earnings22", "librispeech",
+    "earnings22", "librispeech", "librispeech-200",
     "earnings22-debug", "librispeech-debug",
     "earnings22-12hours"
 ]
