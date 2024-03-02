@@ -34,6 +34,10 @@ class BenchmarkContext(AppleSiliconContextMixin, InferenceContextSpec):
         return {"model_commit_hash": self.model_commit_hash}
 
 
+# Overrides sequence length for the decoder
+TEST_DEC_KV_SEQ_LEN = None
+
+
 # TextDecoder utils
 def _prepare_test_inputs_for_decoder(embed_dim,
                                      vocab_size,
@@ -128,8 +132,8 @@ def _prepare_test_inputs_for_decoder_from_cfg(batch_size: int,
         n_layers=cfg.decoder_layers,
         batch_size=batch_size,
         enc_seq_len=cfg.max_source_positions,
-        dec_kv_seq_len=cfg.max_target_positions,
-        active_dec_kv_seq_len=cfg.max_target_positions,
+        dec_kv_seq_len=TEST_DEC_KV_SEQ_LEN or cfg.max_target_positions,
+        active_dec_kv_seq_len=(TEST_DEC_KV_SEQ_LEN or cfg.max_target_positions) - 1,
     )
 
 

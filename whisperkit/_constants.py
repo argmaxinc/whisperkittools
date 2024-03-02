@@ -1,14 +1,14 @@
 #
 # For licensing see accompanying LICENSE.md file.
-# Copyright (C) 2024 Argmax, Inc. All Rights Reserved.
+# Copyright (C) 2023 Argmax, Inc. All Rights Reserved.
 #
 import os
 
 WHISPERKIT_REPO_OWNER = "argmaxinc"
 WHISPERKIT_REPO_NAME = "WhisperKit"
 COMPRESSION_REPO_ID = "argmaxinc/compression_artifacts"
-MODEL_REPO_ID = os.getenv("MODEL_REPO_ID", None) or "argmaxinc/whisperkit-coreml-staging"
-EVALS_REPO_ID = os.getenv("EVALS_REPO_ID", None) or "argmaxinc/whisperkit-evals-staging"
+MODEL_REPO_ID = os.getenv("MODEL_REPO_ID", None) or "argmaxinc/whisperkit-coreml"
+EVALS_REPO_ID = os.getenv("EVALS_REPO_ID", None) or "argmaxinc/whisperkit-evals"
 
 # Override these to register your own dataset
 DATASET_REPO_OWNER = os.getenv("DATASET_REPO_OWNER", None) or "argmaxinc"
