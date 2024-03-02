@@ -24,13 +24,15 @@ setup(
         "jiwer",
         "tabulate",
         "mlx",
-        "tiktoken"
+        "tiktoken",
+        "openai"
     ],
     packages=find_packages(),
     entry_points={
         "console_scripts": [
             "whisperkit-generate-model=scripts.generate_model:cli",
-            "whisperkit-evaluate-model=scripts.evaluate_model:cli"
+            "whisperkit-evaluate-model=scripts.evaluate_model:cli",
+            "whisperkit-generate-readme=scripts.generate_readme:cli",
         ],
     },
     classifiers=[

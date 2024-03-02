@@ -5,6 +5,7 @@
 import time
 from functools import partial
 from multiprocessing import Pool
+from typing import Union
 
 import evaluate
 import tqdm
@@ -20,7 +21,7 @@ text_normalizer = EnglishTextNormalizer()
 wer_metric = evaluate.load("wer")
 
 
-def evaluate(whisper_pipeline: pipelines.WhisperPipeline,
+def evaluate(whisper_pipeline: Union[pipelines.WhisperPipeline, pipelines.WhisperOpenAIAPI],
              dataset_name: str,
              num_samples: int,
              cache_dir: str,

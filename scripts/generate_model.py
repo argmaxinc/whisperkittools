@@ -203,7 +203,7 @@ def rearrange_quantized_variants(args):
     if len(text_decoder_variants) == 0:
         raise FileNotFoundError("No quantized variants found for TextDecoder")
     elif len(text_decoder_variants) == 1:
-        audio_encoder_variants = [audio_encoder_variants[0]]
+        text_decoder_variants = [text_decoder_variants[0]]
     else:
         text_decoder_variants = [text_decoder_variants[0], text_decoder_variants[-1]]
 

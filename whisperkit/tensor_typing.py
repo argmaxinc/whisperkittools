@@ -3,7 +3,7 @@
 # Copyright (C) 2024 Argmax, Inc. All Rights Reserved.
 #
 
-from beartype.typing import Tuple
+from beartype.typing import Tuple, Union
 from jaxtyping import Float, Int
 from torch import Tensor
 
@@ -28,8 +28,21 @@ WhisperTextDecoderEncoderOutputEmbedsType = Float[Tensor, "batch embed_dim 1 enc
 WhisperTextDecoderLogitsType = Float[Tensor, "batch decoder_q_seq_len vocab_size"]
 WhisperTextDecoderKVCacheUpdateType = \
     Float[Tensor, "batch embed_dim_x_n_layers 1 decoder_q_seq_len"]
+WhisperTextDecoderAlignmentHeadsWeightsType = \
+    Float[Tensor, "batch  decoder_kv_seq_len"]
+
 WhisperTextDecoderOutputType = Tuple[
     WhisperTextDecoderLogitsType,
     WhisperTextDecoderKVCacheUpdateType,
     WhisperTextDecoderKVCacheUpdateType
+]
+
+WhisperTextDecoderOutputType = Union[
+    WhisperTextDecoderOutputType,
+    Tuple[
+        WhisperTextDecoderLogitsType,
+        WhisperTextDecoderKVCacheUpdateType,
+        WhisperTextDecoderKVCacheUpdateType,
+        WhisperTextDecoderAlignmentHeadsWeightsType,
+    ]
 ]

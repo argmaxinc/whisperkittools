@@ -16,6 +16,7 @@ from beartype import beartype
 from tqdm import tqdm
 from transformers import AutoTokenizer
 from transformers.activations import ACT2FN
+from transformers.generation.configuration_utils import GenerationConfig
 from transformers.models.whisper.configuration_whisper import WhisperConfig
 
 import whisperkit.tensor_typing as tt
@@ -48,6 +49,7 @@ class WhisperDecoderLayer(nn.Module):
             n_heads=config.decoder_attention_heads,
             attention_type=AttentionType.EncoderDecoderCrossAttention,
         )
+
         self.encoder_attn.sdpa_implementation = SDPA_IMPL
         self.encoder_attn._register_load_state_dict_pre_hook(
             argmaxtools_utils.linear_to_conv2d_map_attention
@@ -106,11 +108,11 @@ class WhisperDecoderLayer(nn.Module):
         # Encoder Cross-Attention
         residual = hidden_states
         hidden_states = self.encoder_attn_layer_norm(hidden_states)
-        (hidden_states,) = self.encoder_attn(
+        hidden_states = self.encoder_attn(
             hidden_states,
             key_padding_mask=encoder_key_padding_mask,
             encoder_output_embeds=encoder_output_embeds,
-        )
+        )[0]
         hidden_states = residual + hidden_states
 
         # Fully Connected
@@ -135,6 +137,36 @@ class WhisperTextDecoder(nn.Module):
             [WhisperDecoderLayer(config) for _ in range(config.decoder_layers)]
         )
         self.layer_norm = LayerNorm(config.d_model)
+        self._alignment_heads = None
+
+    def configure_for_token_timestamps(self, generation_config: GenerationConfig) -> None:
+        """ Setup forward pass to return attention weights from alignment heads as output
+        """
+        self._alignment_heads = generation_config.alignment_heads
+
+        def save_w(module, input, output):
+            assert isinstance(module, Attention), type(module)
+            assert len(output) > 1, len(output)
+            setattr(module, "current_w", output[-1])
+
+        for i in range(len(self.layers)):
+            self.layers[i].encoder_attn._return_w = True
+            self.layers[i].encoder_attn.register_forward_hook(save_w)
+
+    def compute_alignment_heads_attention_weights(self):
+        assert self._alignment_heads is not None, \
+            "Call configure_for_token_timestamps() to enable this feature"
+
+        alignment_weights = []
+        for layer, head in self._alignment_heads:
+            logger.debug(f"Gathering token-level alignment weights for layer={layer}, head={head}")
+
+            w = self.layers[layer].encoder_attn.current_w
+            _, h, q, _ = w.shape
+            assert q == 1 and h == self.config.decoder_attention_heads
+            alignment_weights.append(w[:, head:head+1, 0, :])
+
+        return torch.cat(alignment_weights, dim=1).mean(dim=1)
 
     def forward(
         self,
@@ -197,11 +229,18 @@ class WhisperTextDecoder(nn.Module):
             hidden_states.squeeze(2).transpose(1, 2), self.embed_tokens.weight
         )
 
-        return (
+        outputs = (
             logits,
             torch.cat(key_cache_updates, dim=1),
             torch.cat(value_cache_updates, dim=1),
         )
+
+        # If configured for token-level timestamps, prepare return average attention
+        # weights from the alignment heads
+        if self._alignment_heads is not None:
+            outputs += (self.compute_alignment_heads_attention_weights(),)
+
+        return outputs
 
 
 # TODO(atila): Extend support to `.en` Whisper versions
@@ -367,7 +406,7 @@ class WhisperTextDecoderContextPrefill(nn.Module):
             # Compute cache updates (disregard logits as the token sequence is forced)
             _, key_cache_updates, value_cache_updates = whisper_decoder(
                 **current_inputs
-            )
+            )[:3]
 
             # Update kv caches
             current_inputs["key_cache"][

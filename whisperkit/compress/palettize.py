@@ -2,20 +2,17 @@
 # For licensing see accompanying LICENSE.md file.
 # Copyright (C) 2024 Argmax, Inc. All Rights Reserved.
 #
-import torch
-import torch.nn.functional as F
-
-from transformers import WhisperForConditionalGeneration
 from typing import Dict, Tuple
 
+import torch
+import torch.nn.functional as F
 from argmaxtools.compress.palettize import Palettizer
 from argmaxtools.test_utils import compute_psnr
-from whisperkit import (
-    audio_encoder,
-    text_decoder,
-    test_utils as whisperkit_test_utils
-)
+from transformers import WhisperForConditionalGeneration
 
+from whisperkit import audio_encoder
+from whisperkit import test_utils as whisperkit_test_utils
+from whisperkit import text_decoder
 
 torch.set_grad_enabled(False)
 
@@ -38,11 +35,12 @@ class WhisperTextDecoderPalettizer(Palettizer):
         hf_model = WhisperForConditionalGeneration.from_pretrained(
             model_version,
             torch_dtype=self.default_dtype,
-        ).model.decoder
+        )
 
         argmax_model = text_decoder.WhisperTextDecoder(
             hf_model.config).to(self.default_dtype).eval()
-        argmax_model.load_state_dict(hf_model.state_dict())
+        argmax_model.load_state_dict(hf_model.model.decoder.state_dict())
+        argmax_model.configure_for_token_timestamps(hf_model.generation_config)
 
         test_data = whisperkit_test_utils._prepare_test_inputs_for_decoder_from_cfg(
             TEST_BATCH_SIZE, hf_model.config

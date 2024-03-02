@@ -1,6 +1,6 @@
 #
 # For licensing see accompanying LICENSE.md file.
-# Copyright (C) 2024 Argmax, Inc. All Rights Reserved.
+# Copyright (C) 2023 Argmax, Inc. All Rights Reserved.
 #
 import os
 
@@ -13,7 +13,7 @@ EVALS_REPO_ID = os.getenv("EVALS_REPO_ID", None) or "argmaxinc/whisperkit-evals"
 # Override these to register your own dataset
 DATASET_REPO_OWNER = os.getenv("DATASET_REPO_OWNER", None) or "argmaxinc"
 EVAL_DATASETS = [
-    "earnings22", "librispeech",
+    "earnings22", "librispeech", "librispeech-200",
     "earnings22-debug", "librispeech-debug",
     "earnings22-12hours"
 ]

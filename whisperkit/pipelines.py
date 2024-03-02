@@ -10,6 +10,7 @@ import subprocess
 from abc import ABC, abstractmethod
 from typing import Optional
 
+import openai
 from argmaxtools.utils import _maybe_git_clone, get_logger
 from huggingface_hub import snapshot_download
 
@@ -213,6 +214,8 @@ class WhisperCpp(WhisperPipeline):
     """ Pipeline to clone, build and run the CLI from
     https://github.com/ggerganov/whisper.cpp
     """
+    QUANT_SUFFIXES = ["-q5_0", "-q8_0", "-q5_1", "-q8_1"]
+
     def clone_repo(self):
         self.repo_dir, self.code_commit_hash = _maybe_git_clone(
             out_dir=self.out_dir,
@@ -221,11 +224,22 @@ class WhisperCpp(WhisperPipeline):
             repo_owner="ggerganov",
             commit_hash=self.code_commit_hash)
 
+    def quant_variant(self):
+        for suffix in self.QUANT_SUFFIXES:
+            if self.whisper_version.endswith(suffix):
+                return suffix
+        return None
+
     def build_cli(self):
+        ENV_PREFIX = ""
+        if self.quant_variant() is None:
+            # whisper.cpp doesn't provide quantized Core ML models
+            # Only use Core ML for non-quantized model versions
+            ENV_PREFIX = "WHISPER_COREML=1"
+
         self.cli_path = os.path.join(self.repo_dir, "main")
         if not os.path.exists(self.cli_path):
-            # commands = ["make clean", "WHISPER_COREML=1 make -j"]
-            commands = ["make clean", "WHISPER_COREML=1 make -j"]
+            commands = ["make clean", f"{ENV_PREFIX} make -j"]
             for command in commands:
                 if subprocess.check_call(command, cwd=self.repo_dir, shell=True):
                     raise subprocess.CalledProcessError(f"Failed to run: `{command}`")
@@ -240,25 +254,27 @@ class WhisperCpp(WhisperPipeline):
         self.models_dir = os.path.join(self.repo_dir, "models")
         os.makedirs(self.models_dir, exist_ok=True)
 
-        model_version_str = self.whisper_version.rsplit('/')[-1].replace("whisper-", "")
+        model_version_str = self.whisper_version.rsplit('/')[-1].replace("openai_whisper-", "")
 
-        # Download pre-compiled Core ML models from Hugging Face
-        mlmodelc_fname = f"ggml-{model_version_str}-encoder.mlmodelc"
-        snapshot_download(
-            repo_id="ggerganov/whisper.cpp",
-            allow_patterns=mlmodelc_fname + ".zip",
-            revision=self.model_commit_hash,
-            local_dir=self.models_dir,
-            local_dir_use_symlinks=True
-        )
+        quant_variant = self.quant_variant()
+        if quant_variant is None:
+            # Download pre-compiled Core ML models from Hugging Face
+            mlmodelc_fname = f"ggml-{model_version_str}-encoder.mlmodelc"
+            snapshot_download(
+                repo_id="ggerganov/whisper.cpp",
+                allow_patterns=mlmodelc_fname + ".zip",
+                revision=self.model_commit_hash,
+                local_dir=self.models_dir,
+                local_dir_use_symlinks=True
+            )
 
-        # Unzip mlmodelc.zip
-        if not os.path.exists(os.path.join(self.models_dir, mlmodelc_fname)):
-            if subprocess.check_call(" ".join([
-                "unzip", os.path.join(self.models_dir, mlmodelc_fname + ".zip"),
-                "-d", self.models_dir,
-            ]), cwd=self.repo_dir, shell=True):
-                raise subprocess.CalledProcessError("Failed to unzip Core ML model")
+            # Unzip mlmodelc.zip
+            if not os.path.exists(os.path.join(self.models_dir, mlmodelc_fname)):
+                if subprocess.check_call(" ".join([
+                    "unzip", os.path.join(self.models_dir, mlmodelc_fname + ".zip"),
+                    "-d", self.models_dir,
+                ]), cwd=self.repo_dir, shell=True):
+                    raise subprocess.CalledProcessError("Failed to unzip Core ML model")
 
         # Download other model files (Only the encoder is a Core ML model)
         self.ggml_model_path = os.path.join(
@@ -370,6 +386,72 @@ class WhisperMLX(WhisperPipeline):
         return {"text": text}
 
 
+class WhisperOpenAIAPI:
+    """ Pipeline to use the OpenAI API for transcription
+
+    See https://platform.openai.com/docs/guides/speech-to-text
+    """
+    def __init__(self,
+                 whisper_version: str = "openai/whisper-large-v2",
+                 out_dir: Optional[str] = ".",
+                 **kwargs) -> None:
+
+        if whisper_version != "openai/whisper-large-v2":
+            raise ValueError("OpenAI API only supports 'openai/whisper-large-v2' as of 02/28/2024")
+        self.whisper_version = whisper_version
+
+        if len(kwargs) > 0:
+            logger.warning(f"Unused kwargs: {kwargs}")
+
+        api_key = os.getenv("OPENAI_API_KEY", None)
+        assert api_key is not None
+        self.client = openai.Client(api_key=api_key)
+        self.out_dir = out_dir
+        self.results_dir = os.path.join(out_dir, "OpenAI-API")
+        os.makedirs(self.results_dir, exist_ok=True)
+
+        # Can not version OpenAI API
+        self.code_commit_hash = None
+        self.model_commit_hash = None
+
+        logger.info("""\n
+        =======================================================
+        Using OpenAI API
+        =======================================================
+        """)
+
+    def __call__(self, audio_file_path: str) -> str:
+        if not os.path.exists(audio_file_path):
+            raise FileNotFoundError(audio_file_path)
+
+        logger.info(f"""\n
+        =======================================================
+        Beginning to transcribe {audio_file_path.rsplit("/")[-1]}:
+        -------------------------------------------------------
+        =======================================================
+        """)
+        with open(audio_file_path, "rb") as file_handle:
+            api_result = json.loads(self.client.audio.transcriptions.create(
+                model="whisper-1",
+                timestamp_granularities=["word", "segment"],
+                response_format="verbose_json",
+                file=file_handle,
+            ).json())
+
+        result_fname = f"{audio_file_path.rsplit('/')[-1].rsplit('.')[0]}.json"
+        with open(os.path.join(self.results_dir, result_fname), "w") as f:
+            json.dump(api_result, f, indent=4)
+
+        logger.info(f"""\n
+        =======================================================
+        Transcription result for {audio_file_path.rsplit("/")[-1]}:
+        -------------------------------------------------------\n\n{api_result}
+        =======================================================
+        """)
+
+        return api_result
+
+
 def get_pipeline_cls(cls_name):
     if cls_name == "WhisperKit":
         return WhisperKit
@@ -377,5 +459,7 @@ def get_pipeline_cls(cls_name):
         return WhisperCpp
     elif cls_name == "WhisperMLX":
         return WhisperMLX
+    elif cls_name == "WhisperOpenAIAPI":
+        return WhisperOpenAIAPI
     else:
         raise ValueError(f"Unknown pipeline: {cls_name}")
