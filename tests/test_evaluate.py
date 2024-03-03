@@ -45,7 +45,8 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
             whisper_version=TEST_MODEL_VERSION,
             out_dir=TEST_CACHE_DIR,
             code_commit_hash=TEST_CODE_COMMIT_HASH,
-            model_commit_hash=TEST_MODEL_COMMIT_HASH)
+            model_commit_hash=TEST_MODEL_COMMIT_HASH,
+        )
 
         cls.inference_context = BenchmarkContext(
             code_commit_hash=cls.pipeline.code_commit_hash,
