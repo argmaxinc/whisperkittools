@@ -1,4 +1,18 @@
+<div align="center">
+
+<a href="https://github.com/argmaxinc/WhisperKit#gh-light-mode-only">
+  <img src="https://github.com/argmaxinc/WhisperKit/assets/1981179/6ac3360b-2f5c-4392-a71a-05c5dda71093" alt="WhisperKit" width="20%" />
+</a>
+
+<a href="https://github.com/argmaxinc/WhisperKit#gh-dark-mode-only">
+  <img src="https://github.com/argmaxinc/WhisperKit/assets/1981179/a682ce21-80e0-4a98-a99f-836663538a4f" alt="WhisperKit" width="20%" />
+</a>
+
+![Unit and Functional Tests](https://github.com/argmaxinc/whisperkittools/actions/workflows/public-ci.yml/badge.svg)
+
 # whisperkittools
+</div>
+
 
 Python tools for [WhisperKit](https://github.com/argmaxinc/whisperkit)
 - Convert PyTorch Whisper models to WhisperKit format

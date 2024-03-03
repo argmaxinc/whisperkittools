@@ -10,7 +10,7 @@ import unittest
 from argmaxtools.utils import get_logger
 from huggingface_hub import hf_hub_download
 
-from whisperkit._constants import OPENAI_API_MODEL_VERSION, TEST_DATA_REPO
+from whisperkit._constants import TEST_DATA_REPO
 from whisperkit.evaluate.normalize_en import EnglishTextNormalizer
 from whisperkit.pipelines import WhisperKit
 

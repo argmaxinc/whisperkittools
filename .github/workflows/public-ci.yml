@@ -35,15 +35,15 @@ jobs:
     - name: Word Timestamps Unit Tests
       shell: bash -el {0}
       run: |
-          $(which python) -m unittest tests/test_word_timestamps.py
+          TEST_DEV=cpu $(which python) -m unittest tests/test_word_timestamps.py
     - name: Text Decoder Unit Tests
       shell: bash -el {0}
       run: |
-          TEST_DEV=cpu $(which python) -m unittest tests.test_text_decoder.TestWhisperTextDecoder
+          TEST_DEV=cpu $(which python) tests/test_text_decoder.py 
     - name: Audio Encoder Unit Tests
       shell: bash -el {0}
       run: |
-          TEST_DEV=cpu $(which python) -m unittest tests.test_audio_encoder.TestWhisperAudioEncoder
+          TEST_DEV=cpu $(which python) tests/test_audio_encoder.py 
     - name: Lint
       shell: bash -el {0}
       run: |
