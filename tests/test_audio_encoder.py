@@ -22,7 +22,7 @@ logger = get_logger(__name__)
 
 TEST_WHISPER_VERSION = os.getenv("TEST_WHISPER_VERSION", None) or "openai/whisper-tiny"
 TEST_CACHE_DIR = os.getenv("TEST_CACHE_DIR", None) or "/tmp"
-TEST_DEV = get_fastest_device()
+TEST_DEV = os.getenv("TEST_DEV", None) or get_fastest_device()
 TEST_TORCH_DTYPE = torch.float32
 TEST_PSNR_THR = 35
 
@@ -170,7 +170,7 @@ argmaxtools_test_utils.TEST_ALLOWED_NBITS = [4, 6, 8]
 compress.palettize.NUM_MIXED_BIT_RECIPES = 1
 compress.palettize.TEST_BATCH_SIZE = 16
 compress.palettize.INVERTED_RESULT_THR = 0.25
-compress.palettize.SPARSE_OUTLIER_DECOMPOSITION = True
+compress.palettize.SPARSE_OUTLIER_DECOMPOSITION = False
 compress.sparse_outlier.OUTLIER_NUM_STD = 3.0
 
 

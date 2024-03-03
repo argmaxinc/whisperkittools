@@ -38,7 +38,7 @@ TEST_BATCH = 16
 TEST_OUTPUT_NAMES = [
     "logits", "key_cache_updates", "value_cache_updates", "alignment_heads_weights"]
 TEST_CONTEXT_PREFILL_OUTPUT_NAMES = ["key_cache_prefill", "value_cache_prefill"]
-TEST_TEXT_DECODER_SEQ_LEN = None
+TEST_DEC_KV_SEQ_LEN = None
 
 
 class TestWhisperTextDecoder(argmaxtools_test_utils.CoreMLTestsMixin, unittest.TestCase):
@@ -79,7 +79,7 @@ class TestWhisperTextDecoder(argmaxtools_test_utils.CoreMLTestsMixin, unittest.T
             batch_size=1,
             vocab_size=cfg.vocab_size,
             enc_seq_len=cfg.max_source_positions,
-            dec_kv_seq_len=TEST_TEXT_DECODER_SEQ_LEN or cfg.max_target_positions,
+            dec_kv_seq_len=TEST_DEC_KV_SEQ_LEN or cfg.max_target_positions,
         )
 
         cls.cfg["active_dec_kv_seq_len"] = random.randint(1, cls.cfg["dec_kv_seq_len"])
@@ -325,7 +325,7 @@ argmaxtools_test_utils.TEST_ALLOWED_NBITS = [4, 6, 8]
 compress.palettize.NUM_MIXED_BIT_RECIPES = 1
 compress.palettize.TEST_BATCH_SIZE = 16
 compress.palettize.INVERTED_RESULT_THR = 0.25
-compress.palettize.SPARSE_OUTLIER_DECOMPOSITION = True
+compress.palettize.SPARSE_OUTLIER_DECOMPOSITION = False
 compress.sparse_outlier.OUTLIER_NUM_STD = 3.0
 
 
@@ -370,7 +370,7 @@ def place(t):
 
 
 def main(args):
-    global TEST_WHISPER_VERSION, TEST_CACHE_DIR, TEST_TEXT_DECODER_SEQ_LEN
+    global TEST_WHISPER_VERSION, TEST_CACHE_DIR, TEST_DEC_KV_SEQ_LEN
 
     TEST_WHISPER_VERSION = args.test_model_version
     logger.info(f"Testing {TEST_WHISPER_VERSION}")
@@ -379,7 +379,8 @@ def main(args):
     logger.info(f"Set SDPA implementation to: {text_decoder.SDPA_IMPL}")
 
     if args.test_seq_len is not None:
-        TEST_TEXT_DECODER_SEQ_LEN = args.test_seq_len
+        TEST_DEC_KV_SEQ_LEN = args.test_seq_len
+        test_utils.TEST_DEC_KV_SEQ_LEN = args.test_seq_len
         logger.info(f"Overriding default sequence length to {args.test_seq_len}")
 
     with argmaxtools_test_utils._get_test_cache_dir(

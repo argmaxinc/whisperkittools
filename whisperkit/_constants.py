@@ -20,3 +20,7 @@ EVAL_DATASETS = [
 CUSTOM_EVAL_DATASET = os.getenv("EVAL_DATASET", None)
 if CUSTOM_EVAL_DATASET is not None:
     EVAL_DATASETS.append(CUSTOM_EVAL_DATASET)
+
+# Tests
+OPENAI_API_MODEL_VERSION = "openai/whisper-large-v2"
+TEST_DATA_REPO = "argmaxinc/whisperkit-test-data"

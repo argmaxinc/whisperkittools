@@ -104,6 +104,7 @@ class WhisperKit(WhisperPipeline):
     """
     _compute_unit: CoreMLSwiftComputeUnit = CoreMLSwiftComputeUnit.ANE
     _randomize_dispatch: bool = False
+    _word_timestamps: bool = False
 
     def clone_repo(self):
         self.repo_dir, self.code_commit_hash = _maybe_git_clone(
@@ -185,6 +186,7 @@ class WhisperKit(WhisperPipeline):
             "--text-decoder-compute-units", self.compute_unit.value,
             "--audio-encoder-compute-units", self.compute_unit.value,
             "--report-path", self.results_dir, "--report",
+            "--word-timestamps" if self._word_timestamps else "",
         ])
 
         logger.debug(f"Executing command: {cmd}")

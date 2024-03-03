@@ -1,0 +1,51 @@
+name: Unit and Functional Tests
+run-name: commit-${{ github.sha }}
+on:
+  workflow_dispatch:
+  schedule:
+    # Every Sunday at 10:00 UTC.
+    - cron: '00 10 * * 6'
+
+jobs:
+  unit-tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        os: [macos-14-xlarge] # , macos-13-xlarge]
+        python-version: [3.11] # [3.9, 3.11]
+    steps:
+    - uses: actions/checkout@v4
+    - uses: conda-incubator/setup-miniconda@v3
+      with:
+        python-version: ${{ matrix.python-version }}
+        # miniconda-version: "latest"
+    - name: Setup Conda Environment
+      shell: bash -el {0}
+      run: |
+          pip install -e .
+          pip install flake8
+    - name: Print system information
+      shell: bash -el {0}
+      run: |
+          $(which python) -c \
+              "from argmaxtools.test_utils import AppleSiliconContextMixin; \
+              print(AppleSiliconContextMixin().os_spec())"
+    - name: Word Timestamps Unit Tests
+      shell: bash -el {0}
+      run: |
+          $(which python) -m unittest tests/test_word_timestamps.py
+    - name: Text Decoder Unit Tests
+      shell: bash -el {0}
+      run: |
+          TEST_DEV=cpu $(which python) -m unittest tests.test_text_decoder.TestWhisperTextDecoder
+    - name: Audio Encoder Unit Tests
+      shell: bash -el {0}
+      run: |
+          TEST_DEV=cpu $(which python) -m unittest tests.test_audio_encoder.TestWhisperAudioEncoder
+    - name: Lint
+      shell: bash -el {0}
+      run: |
+          pip install flake8
+          $(which flake8) whisperkit tests
