@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 TEST_WHISPER_VERSION = (
     os.getenv("TEST_WHISPER_VERSION", None) or "openai/whisper-tiny"
 )  # tiny"
-TEST_DEV = get_fastest_device()
+TEST_DEV = os.getenv("TEST_DEV", None) or get_fastest_device()
 TEST_TORCH_DTYPE = torch.float32
 TEST_PSNR_THR = 35
 TEST_CACHE_DIR = os.getenv("TEST_CACHE_DIR", None) or "/tmp"
