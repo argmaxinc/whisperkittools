@@ -4,6 +4,7 @@
 #
 from copy import deepcopy
 from itertools import product
+import os
 from typing import Optional, Tuple, Union
 
 import torch
@@ -334,7 +335,7 @@ class WhisperTextDecoderContextPrefill(nn.Module):
         using forced decoder context prefix tokens and save results to nn.Embedding look-up tables
         """
         str2int = self.tokenizer.vocab
-        dev = argmaxtools_utils.get_fastest_device()
+        dev = os.getenv("TEST_DEV", None) or argmaxtools_utils.get_fastest_device()
 
         # Note: The cache technically shouldn't be pre-computable because, even though the (forced)
         # decoder `input_ids` are known ahead of time, the cache is also a function of the runtime-
