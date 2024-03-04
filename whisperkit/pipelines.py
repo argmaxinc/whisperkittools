@@ -432,6 +432,38 @@ class WhisperOpenAIAPI:
         -------------------------------------------------------
         =======================================================
         """)
+
+        # If file size larger than API max file size, compress with ffmpeg
+        if os.path.getsize(audio_file_path) > _constants.OPENAI_API_MAX_FILE_SIZE:
+            logger.info(f"Compressing audio file {audio_file_path.rsplit('/')[-1]} with ffmpeg")
+
+            compressed_audio_file_path = os.path.splitext(audio_file_path)[0] + ".ogg"
+            if subprocess.check_call(" ".join([
+                "ffmpeg",
+                "-i", audio_file_path,
+                "-vn",
+                "-map_metadata", "-1",
+                "-ac", "1", "-c:a", "libopus", "-b:a", _constants.OPENAI_API_COMPRESSED_UPLOAD_BIT_RATE,
+                "-application", "voip",
+                compressed_audio_file_path
+            ]), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True):
+                raise subprocess.CalledProcessError(
+                    "Failed to compress audio file. Make sure ffmpeg is installed.")
+
+            audio_file_path = compressed_audio_file_path
+            compressed_size = os.path.getsize(audio_file_path)
+
+            if compressed_size > _constants.OPENAI_API_MAX_FILE_SIZE:
+                raise ValueError(
+                    f"Compressed file size {compressed_size} exceeds OpenAI API max file size "
+                    f"({_constants.OPENAI_API_MAX_FILE_SIZE}). Either (a) override "
+                    "whisperkit._constants.OPENAI_API_COMPRESSED_UPLOAD_BIT_RATE with a lower value or (2)"
+                    "follow https://platform.openai.com/docs/guides/speech-to-text/longer-inputs"
+                )
+
+            logger.info(
+                f"Compressed size for {audio_file_path.rsplit('/')[-1]}: {compressed_size}")
+
         with open(audio_file_path, "rb") as file_handle:
             api_result = json.loads(self.client.audio.transcriptions.create(
                 model="whisper-1",
