@@ -394,20 +394,19 @@ class WhisperOpenAIAPI:
     See https://platform.openai.com/docs/guides/speech-to-text
     """
     def __init__(self,
-                 whisper_version: str = "openai/whisper-large-v2",
+                 whisper_version: str = _constants.OPENAI_API_MODEL_VERSION,
                  out_dir: Optional[str] = ".",
                  **kwargs) -> None:
 
-        if whisper_version != "openai/whisper-large-v2":
-            raise ValueError("OpenAI API only supports 'openai/whisper-large-v2' as of 02/28/2024")
+        if whisper_version != _constants.OPENAI_API_MODEL_VERSION:
+            raise ValueError(f"OpenAI API only supports '{_constants.OPENAI_API_MODEL_VERSION}'")
         self.whisper_version = whisper_version
+
+        self.client = None
 
         if len(kwargs) > 0:
             logger.warning(f"Unused kwargs: {kwargs}")
 
-        api_key = os.getenv("OPENAI_API_KEY", None)
-        assert api_key is not None
-        self.client = openai.Client(api_key=api_key)
         self.out_dir = out_dir
         self.results_dir = os.path.join(out_dir, "OpenAI-API")
         os.makedirs(self.results_dir, exist_ok=True)
@@ -422,22 +421,23 @@ class WhisperOpenAIAPI:
         =======================================================
         """)
 
-    def __call__(self, audio_file_path: str) -> str:
-        if not os.path.exists(audio_file_path):
-            raise FileNotFoundError(audio_file_path)
+    def _maybe_init_client(self):
+        if self.client is None:
+            api_key = os.getenv("OPENAI_API_KEY", None)
+            assert api_key is not None
+            self.client = openai.Client(api_key=api_key)
 
-        logger.info(f"""\n
-        =======================================================
-        Beginning to transcribe {audio_file_path.rsplit("/")[-1]}:
-        -------------------------------------------------------
-        =======================================================
-        """)
-
-        # If file size larger than API max file size, compress with ffmpeg
-        if os.path.getsize(audio_file_path) > _constants.OPENAI_API_MAX_FILE_SIZE:
-            logger.info(f"Compressing audio file {audio_file_path.rsplit('/')[-1]} with ffmpeg")
+    def _maybe_compress_audio_file(self, audio_file_path: str) -> str:
+        """ If size of file at `audio_file_path` is larger than OpenAI API max file size, compress with ffmpeg
+        """
+        audio_file_size = os.path.getsize(audio_file_path)
+        if audio_file_size > _constants.OPENAI_API_MAX_FILE_SIZE:
+            logger.info(
+                f"Compressing {audio_file_path.rsplit('/')[-1]} with size {audio_file_size / 1e6:.1f} MB > "
+                f"{_constants.OPENAI_API_MAX_FILE_SIZE / 1e6:.1f} MB (OpenAI API max file size)")
 
             compressed_audio_file_path = os.path.splitext(audio_file_path)[0] + ".ogg"
+            # if not os.path.exists(compressed_audio_file_path):
             if subprocess.check_call(" ".join([
                 "ffmpeg",
                 "-i", audio_file_path,
@@ -445,6 +445,7 @@ class WhisperOpenAIAPI:
                 "-map_metadata", "-1",
                 "-ac", "1", "-c:a", "libopus", "-b:a", _constants.OPENAI_API_COMPRESSED_UPLOAD_BIT_RATE,
                 "-application", "voip",
+                "-y",  # Overwrite
                 compressed_audio_file_path
             ]), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True):
                 raise subprocess.CalledProcessError(
@@ -455,26 +456,49 @@ class WhisperOpenAIAPI:
 
             if compressed_size > _constants.OPENAI_API_MAX_FILE_SIZE:
                 raise ValueError(
-                    f"Compressed file size {compressed_size} exceeds OpenAI API max file size "
-                    f"({_constants.OPENAI_API_MAX_FILE_SIZE}). Either (a) override "
-                    "whisperkit._constants.OPENAI_API_COMPRESSED_UPLOAD_BIT_RATE with a lower value or (2)"
+                    f"Compressed file size {compressed_size / 1e6:.1f} MB exceeds OpenAI API max file size "
+                    f"({_constants.OPENAI_API_MAX_FILE_SIZE / 1e6:.1f}) MB. Either (a) override "
+                    "whisperkit._constants.OPENAI_API_COMPRESSED_UPLOAD_BIT_RATE with a lower value or (2) "
                     "follow https://platform.openai.com/docs/guides/speech-to-text/longer-inputs"
                 )
 
             logger.info(
-                f"Compressed size for {audio_file_path.rsplit('/')[-1]}: {compressed_size}")
+                f"Compressed  {audio_file_path.rsplit('/')[-1]} to {compressed_size / 1e6:.1f} MB < "
+                f"{_constants.OPENAI_API_MAX_FILE_SIZE / 1e6:.1f} MB"
+            )
 
-        with open(audio_file_path, "rb") as file_handle:
-            api_result = json.loads(self.client.audio.transcriptions.create(
-                model="whisper-1",
-                timestamp_granularities=["word", "segment"],
-                response_format="verbose_json",
-                file=file_handle,
-            ).json())
+        return audio_file_path
 
+    def __call__(self, audio_file_path: str) -> str:
+        if not os.path.exists(audio_file_path):
+            raise FileNotFoundError(audio_file_path)
+
+        logger.info(f"""\n
+        =======================================================
+        Beginning to transcribe {audio_file_path.rsplit("/")[-1]}:
+        -------------------------------------------------------
+        =======================================================
+        """)
         result_fname = f"{audio_file_path.rsplit('/')[-1].rsplit('.')[0]}.json"
-        with open(os.path.join(self.results_dir, result_fname), "w") as f:
-            json.dump(api_result, f, indent=4)
+
+        if not os.path.exists(os.path.join(self.results_dir, result_fname)):
+            audio_file_path = self._maybe_compress_audio_file(audio_file_path)
+            self._maybe_init_client()
+
+            with open(audio_file_path, "rb") as file_handle:
+                api_result = json.loads(self.client.audio.transcriptions.create(
+                    model="whisper-1",
+                    timestamp_granularities=["word", "segment"],
+                    response_format="verbose_json",
+                    file=file_handle,
+                ).json())
+
+            # result_fname = f"{audio_file_path.rsplit('/')[-1].rsplit('.')[0]}.json"
+            with open(os.path.join(self.results_dir, result_fname), "w") as f:
+                json.dump(api_result, f, indent=4)
+        else:
+            with open(os.path.join(self.results_dir, result_fname), "r") as f:
+                api_result = json.load(f)
 
         logger.info(f"""\n
         =======================================================
