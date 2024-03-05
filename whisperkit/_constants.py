@@ -1,6 +1,6 @@
 #
 # For licensing see accompanying LICENSE.md file.
-# Copyright (C) 2023 Argmax, Inc. All Rights Reserved.
+# Copyright (C) 2024 Argmax, Inc. All Rights Reserved.
 #
 import os
 
@@ -22,5 +22,7 @@ if CUSTOM_EVAL_DATASET is not None:
     EVAL_DATASETS.append(CUSTOM_EVAL_DATASET)
 
 # Tests
-OPENAI_API_MODEL_VERSION = "openai/whisper-large-v2"
+OPENAI_API_MODEL_VERSION = "openai_whisper-large-v2"
+OPENAI_API_MAX_FILE_SIZE = 25e6  # bytes
+OPENAI_API_COMPRESSED_UPLOAD_BIT_RATE = "12k"  # kbps
 TEST_DATA_REPO = "argmaxinc/whisperkit-test-data"
