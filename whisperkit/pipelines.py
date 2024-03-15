@@ -115,7 +115,7 @@ class WhisperKit(WhisperPipeline):
             commit_hash=self.code_commit_hash)
 
     def build_cli(self):
-        self.product_name = "transcribe"
+        self.product_name = "whisperkit-cli"
         if subprocess.check_call(f"swift build -c release --product {self.product_name}",
                                  cwd=self.repo_dir, shell=True):
             raise subprocess.CalledProcessError(f"Failed to build {self.product_name}")
@@ -181,6 +181,7 @@ class WhisperKit(WhisperPipeline):
 
         cmd = " ".join([
             self.cli_path,
+            "transcribe",
             "--audio-path", audio_file_path,
             "--model-path", self.models_dir,
             "--text-decoder-compute-units", self.compute_unit.value,
