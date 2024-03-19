@@ -3,6 +3,7 @@
 # Copyright (C) 2024 Argmax, Inc. All Rights Reserved.
 #
 import argparse
+import evaluate
 import json
 import os
 from collections import defaultdict
@@ -12,6 +13,8 @@ from argmaxtools.utils import get_logger
 from huggingface_hub import HfApi, snapshot_download
 
 from whisperkit._constants import EVALS_REPO_ID, MODEL_REPO_ID
+
+wer_metric = evaluate.load("wer")
 
 logger = get_logger(__name__)
 
@@ -42,12 +45,14 @@ any machine learning model in production. To contextualize `WhisperKit`, we take
 implementations and benchmark them using a consistent evaluation harness:
 
 Server-side:
-- `WhisperOpenAIAPI`: [OpenAI's Whisper API](https://platform.openai.com/docs/guides/speech-to-text) ($0.36 per hour of audio as of 02/29/24, 25MB file size limit per request)
+- `WhisperOpenAIAPI`: [OpenAI's Whisper API](https://platform.openai.com/docs/guides/speech-to-text)
+($0.36 per hour of audio as of 02/29/24, 25MB file size limit per request)
 
 On-device:
 - `WhisperKit`: Argmax's implementation [[Eval Harness]](https://github.com/argmaxinc/whisperkittools/blob/main/whisperkit/pipelines.py#L100) [[Repo]](https://github.com/argmaxinc/WhisperKit)
 - `whisper.cpp`: A C++ implementation form ggerganov [[Eval Harness]](https://github.com/argmaxinc/whisperkittools/blob/main/whisperkit/pipelines.py#L212) [[Repo]](https://github.com/ggerganov/whisper.cpp)
 - `WhisperMLX`: A Python implementation from Apple MLX [[Eval Harness]](https://github.com/argmaxinc/whisperkittools/blob/main/whisperkit/pipelines.py#L338) [[Repo]](https://github.com/ml-explore/mlx-examples/blob/main/whisper/whisper/transcribe.py)
+(All on-device implementations are available for free under MIT license as of 03/19/2024)
 
 `WhisperOpenAIAPI` sets the reference and we assume that it is using the equivalent of [openai/whisper-large-v2](https://huggingface.co/openai/whisper-large-v2)
 in float16 precision along with additional undisclosed optimizations from OpenAI. In all measurements, we care primarily about per-example no-regressions (quantified as `qoi` below)
@@ -115,6 +120,11 @@ REFERENCE_MODEL_FILE_SIZES = {
     "WhisperOpenAIAPI/openai_whisper-large-v2": 3100,     # MB
 }
 
+DATASET_CAPTIONS = {
+    "librispeech": "Short-form Audio (<30s/clip) - 5 hours of English audiobook clips",
+    "earnings22": "Long-Form Audio (>1hr/clip) - 120 hours of earnings call recordings in English with various accents",
+}
+
 
 def cli():
     f""" Generates the README for hf.co/datasets/{EVALS_REPO_ID} which contains
@@ -144,7 +154,7 @@ def cli():
     readme = ""
 
     for dataset_name in args.dataset_names:
-        readme += f"\n## Dataset: `{dataset_name}`\n"
+        readme += f"\n## Dataset: `{dataset_name}`\n{DATASET_CAPTIONS[dataset_name]}\n"
         "-------------------------------------------------"
 
         # Quality-of-Inference (QoI) certifications for Whisper models
@@ -168,9 +178,7 @@ def cli():
                 REFERENCE_MODEL_FILE_SIZES[reference]
 
             # Sample average WER for reference model
-            results_dict[WER_KEY][reference_key] = round(
-                sum([sample["wer"] for sample in reference_eval["results"]]) /
-                len(reference_eval["results"]) * 100., 2)
+            results_dict[WER_KEY][reference_key] = compute_average_wer(reference_eval["results"])
 
             # Fill optimized model version values
             for optimized in optimized_csv.split(","):
@@ -192,9 +200,7 @@ def cli():
                     optimized_eval["results"]
                 )
                 results_dict[QOI_KEY][optimized_key] = qoi["no_regression"]
-                results_dict[WER_KEY][optimized_key] = round(
-                    sum([sample["wer"] for sample in optimized_eval["results"]]) /
-                    len(optimized_eval["results"]) * 100., 2)
+                results_dict[WER_KEY][optimized_key] = compute_average_wer(optimized_eval["results"])
 
                 # TODO(atiorh): Read remote git file size
                 if optimized in REFERENCE_MODEL_FILE_SIZES:
@@ -328,3 +334,10 @@ def verify_apples_to_apples(reference_eval, optimized_eval):
         logger.warning(
             "Reference and optimized evals weren't generated with the same "
             "whisperkittools commit")
+
+
+def compute_average_wer(results):
+    return round(wer_metric.compute(
+        references=[result["reference"] for result in results],
+        predictions=[result["prediction"] for result in results],
+    ) * 100., 2)
