@@ -15,15 +15,16 @@ from whisperkit._constants import EVALS_REPO_ID, MODEL_REPO_ID
 
 logger = get_logger(__name__)
 
-QOI_KEY = "QoI (%)"
+QOI_KEY = "QoI (↑)"
 FILE_SIZE_KEY = "File Size (MB)"
-WER_KEY = "WER"
+WER_KEY = "WER (↓)"
 COMMIT_KEY = "Commit Hash"
 
 HF_HUB_DATASET_CARD_YAML_PREFIX = """
 ---
 pretty_name: "WhisperKit ASR Evaluation Results"
 viewer: false
+library_name: whisperkit
 tags:
 - whisper
 - whisperkit
@@ -109,6 +110,8 @@ REFERENCE_MODEL_FILE_SIZES = {
     "WhisperKit/openai_whisper-tiny.en": 66,              # MB
     "whisper.cpp/openai_whisper-large-v2-q5_0": 1080,     # MB
     "whisper.cpp/openai_whisper-large-v3-q5_0": 1080,     # MB
+    "whisper.cpp/openai_whisper-large-v3": 3100,          # MB
+    "whisper.cpp/openai_whisper-large-v2": 3100,          # MB
     "WhisperOpenAIAPI/openai_whisper-large-v2": 3100,     # MB
 }
 
@@ -172,8 +175,13 @@ def cli():
             # Fill optimized model version values
             for optimized in optimized_csv.split(","):
                 optimized_code_repo, optimized_model = parse_name(optimized)
-                optimized_eval, optimized_link = get_latest_eval(
-                    optimized_code_repo, dataset_name, optimized_model)
+                try:
+                    optimized_eval, optimized_link = get_latest_eval(
+                        optimized_code_repo, dataset_name, optimized_model)
+                except Exception as e:
+                    logger.warning(f"Could not fetch eval JSON for {optimized}: {e}")
+                    continue
+
                 optimized_key = f"[{optimized}]({optimized_link})"
 
                 # Verify fetched evals are comparable
@@ -270,10 +278,11 @@ def parse_name(result, default_code_repo="WhisperKit"):
     return code_repo, model
 
 
-def get_latest_eval(code_repo, dataset_name, model_version, local_dir="/tmp"):
+def get_latest_eval(code_repo, dataset_name, model_version, local_dir="external"):
     f""" Fetch the latest eval from hf.co/datasets/{EVALS_REPO_ID}
     for given code repo, model version and dataset
     """
+    os.makedirs(local_dir, exist_ok=True)
     repo_rel_dir = os.path.join(code_repo, model_version, dataset_name)
     _ = snapshot_download(
         repo_id=EVALS_REPO_ID,
