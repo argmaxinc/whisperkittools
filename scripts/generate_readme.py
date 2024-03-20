@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 QOI_KEY = "QoI (↑)"
 FILE_SIZE_KEY = "File Size (MB)"
 WER_KEY = "WER (↓)"
-COMMIT_KEY = "Commit Hash"
+COMMIT_KEY = "Code Commit"
 
 HF_HUB_DATASET_CARD_YAML_PREFIX = """
 ---
@@ -46,13 +46,13 @@ implementations and benchmark them using a consistent evaluation harness:
 
 Server-side:
 - `WhisperOpenAIAPI`: [OpenAI's Whisper API](https://platform.openai.com/docs/guides/speech-to-text)
-($0.36 per hour of audio as of 02/29/24, 25MB file size limit per request)
+\n($0.36 per hour of audio as of 02/29/24, 25MB file size limit per request)
 
 On-device:
 - `WhisperKit`: Argmax's implementation [[Eval Harness]](https://github.com/argmaxinc/whisperkittools/blob/main/whisperkit/pipelines.py#L100) [[Repo]](https://github.com/argmaxinc/WhisperKit)
 - `whisper.cpp`: A C++ implementation form ggerganov [[Eval Harness]](https://github.com/argmaxinc/whisperkittools/blob/main/whisperkit/pipelines.py#L212) [[Repo]](https://github.com/ggerganov/whisper.cpp)
 - `WhisperMLX`: A Python implementation from Apple MLX [[Eval Harness]](https://github.com/argmaxinc/whisperkittools/blob/main/whisperkit/pipelines.py#L338) [[Repo]](https://github.com/ml-explore/mlx-examples/blob/main/whisper/whisper/transcribe.py)
-(All on-device implementations are available for free under MIT license as of 03/19/2024)
+\n(All on-device implementations are available for free under MIT license as of 03/19/2024)
 
 `WhisperOpenAIAPI` sets the reference and we assume that it is using the equivalent of [openai/whisper-large-v2](https://huggingface.co/openai/whisper-large-v2)
 in float16 precision along with additional undisclosed optimizations from OpenAI. In all measurements, we care primarily about per-example no-regressions (quantified as `qoi` below)
@@ -164,13 +164,17 @@ def cli():
             results_dict[WER_KEY] = defaultdict(float)
             results_dict[QOI_KEY] = defaultdict(float)
             results_dict[FILE_SIZE_KEY] = defaultdict(int)
+            results_dict[COMMIT_KEY] = defaultdict(str)
 
             # Fetch the reference eval results
             reference_code_repo, reference_model = parse_name(reference)
 
             reference_eval, reference_link = get_latest_eval(
                 reference_code_repo, dataset_name, reference_model)
-            reference_key = f"[{reference}]({reference_link})"
+            if reference_code_repo == "WhisperKit":
+                reference_key = f"[{reference}]({get_model_link(reference_model)})"
+            else:
+                reference_key = reference
 
             # Fill reference model version values
             results_dict[QOI_KEY][reference_key] = 100.  # By definition of QoI
@@ -178,7 +182,15 @@ def cli():
                 REFERENCE_MODEL_FILE_SIZES[reference]
 
             # Sample average WER for reference model
-            results_dict[WER_KEY][reference_key] = compute_average_wer(reference_eval["results"])
+            results_dict[WER_KEY][reference_key] = \
+                f"[{compute_average_wer(reference_eval['results'])}]({reference_link})"
+
+            # Add commit hash for reference results
+            commit_hash = reference_eval["metadata"]["inference_context"]["code_spec"]["code_commit_hash"]
+            if commit_hash is not None:
+                results_dict[COMMIT_KEY][reference_key] = commit_hash[:7]
+            else:
+                results_dict[COMMIT_KEY][reference_key] = "N/A"
 
             # Fill optimized model version values
             for optimized in optimized_csv.split(","):
@@ -190,7 +202,10 @@ def cli():
                     logger.warning(f"Could not fetch eval JSON for {optimized}: {e}")
                     continue
 
-                optimized_key = f"[{optimized}]({optimized_link})"
+                if optimized_code_repo == "WhisperKit":
+                    optimized_key = f"[{optimized}]({get_model_link(optimized_model)})"
+                else:
+                    optimized_key = optimized
 
                 # Verify fetched evals are comparable
                 logger.info(f"Compare {optimized_link} vs {reference_link}")
@@ -200,7 +215,14 @@ def cli():
                     optimized_eval["results"]
                 )
                 results_dict[QOI_KEY][optimized_key] = qoi["no_regression"]
-                results_dict[WER_KEY][optimized_key] = compute_average_wer(optimized_eval["results"])
+                results_dict[WER_KEY][optimized_key] = f"[{compute_average_wer(optimized_eval['results'])}]({optimized_link})"
+
+                # Add commit hash for reference results
+                commit_hash = optimized_eval["metadata"]["inference_context"]["code_spec"]["code_commit_hash"]
+                if commit_hash is not None:
+                    results_dict[COMMIT_KEY][optimized_key] = commit_hash[:7]
+                else:
+                    results_dict[COMMIT_KEY][optimized_key] = "N/A"
 
                 # TODO(atiorh): Read remote git file size
                 if optimized in REFERENCE_MODEL_FILE_SIZES:
@@ -341,3 +363,7 @@ def compute_average_wer(results):
         references=[result["reference"] for result in results],
         predictions=[result["prediction"] for result in results],
     ) * 100., 2)
+
+
+def get_model_link(model_version):
+    return f"https://hf.co/{MODEL_REPO_ID}/tree/main/{model_version}"
