@@ -14,7 +14,7 @@ from argmaxtools import test_utils as argmaxtools_test_utils
 from argmaxtools.utils import get_logger
 from huggingface_hub import HfApi
 
-from whisperkit._constants import EVALS_REPO_ID
+from whisperkit._constants import EVALS_REPO_ID, MODEL_REPO_ID
 from whisperkit.evaluate.datasets import EVAL_DATASETS
 from whisperkit.evaluate.evaluate import evaluate
 from whisperkit.pipelines import get_pipeline_cls
@@ -75,6 +75,7 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
                 "model_version": TEST_MODEL_VERSION,
                 "whisperkittools_commit_hash": wkt_commit_hash,
                 "inference_context": cls.inference_context.spec_dict(),
+                "model_repo_id": MODEL_REPO_ID
             }
         }
 

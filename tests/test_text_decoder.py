@@ -39,6 +39,7 @@ TEST_OUTPUT_NAMES = [
     "logits", "key_cache_updates", "value_cache_updates", "alignment_heads_weights"]
 TEST_CONTEXT_PREFILL_OUTPUT_NAMES = ["key_cache_prefill", "value_cache_prefill"]
 TEST_DEC_KV_SEQ_LEN = None
+TEST_TOKEN_TIMESTAMPS = True
 
 
 class TestWhisperTextDecoder(argmaxtools_test_utils.CoreMLTestsMixin, unittest.TestCase):
@@ -47,6 +48,9 @@ class TestWhisperTextDecoder(argmaxtools_test_utils.CoreMLTestsMixin, unittest.T
         cls.test_output_names = TEST_OUTPUT_NAMES
         cls.test_cache_dir = TEST_CACHE_DIR
         cls.model_name = "TextDecoder"
+
+        if not TEST_TOKEN_TIMESTAMPS:
+            cls.test_output_names.pop(cls.test_output_names.index("alignment_heads_weights"))
 
         # Original model
         orig_torch_model = (
@@ -68,7 +72,9 @@ class TestWhisperTextDecoder(argmaxtools_test_utils.CoreMLTestsMixin, unittest.T
             cls.test_torch_model.to(TEST_DEV).to(TEST_TORCH_DTYPE).eval()
         )
         cls.gen_cfg = orig_torch_model.generation_config
-        cls.test_torch_model.configure_for_token_timestamps(cls.gen_cfg)
+
+        if TEST_TOKEN_TIMESTAMPS:
+            cls.test_torch_model.configure_for_token_timestamps(cls.gen_cfg)
 
         # Elaboration: I/O and architecture config
         cfg = cls.orig_torch_model.config
@@ -347,6 +353,9 @@ class TestWhisperTextDecoderPalettizer(
     def setUpClass(cls):
         cls.model_name = "TextDecoder"
         cls.output_names = TEST_OUTPUT_NAMES
+        if not TEST_TOKEN_TIMESTAMPS:
+            cls.output_names.pop("alignment_heads_weights")
+
         cls.palettizer = palettize.WhisperTextDecoderPalettizer(
             model_version=TEST_WHISPER_VERSION,
             cache_dir=os.path.join(
@@ -370,9 +379,11 @@ def place(t):
 
 
 def main(args):
-    global TEST_WHISPER_VERSION, TEST_CACHE_DIR, TEST_DEC_KV_SEQ_LEN
+    global TEST_WHISPER_VERSION, TEST_CACHE_DIR, TEST_DEC_KV_SEQ_LEN, TEST_TOKEN_TIMESTAMPS
 
     TEST_WHISPER_VERSION = args.test_model_version
+    TEST_TOKEN_TIMESTAMPS = not args.disable_token_timestamps
+
     logger.info(f"Testing {TEST_WHISPER_VERSION}")
 
     text_decoder.SDPA_IMPL = getattr(_sdpa, args.sdpa_implementation)
@@ -422,6 +433,7 @@ if __name__ == "__main__":
     parser.add_argument("--palettizer-tests", action="store_true")
     parser.add_argument("--disable-default-tests", action="store_true")
     parser.add_argument("--context-prefill-tests", action="store_true")
+    parser.add_argument("--disable-token-timestamps", action="store_true")
     parser.add_argument(
         "--sdpa-implementation", default="Cat", choices=tuple(_sdpa.__all__)
     )
