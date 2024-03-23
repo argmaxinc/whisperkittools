@@ -23,6 +23,7 @@ logger = get_logger(__name__)
 
 test_utils.TEST_MIN_SPEEDUP_VS_CPU = 0.3
 
+
 def cli():
     f""" Generates Whisper models and publishes them to hf.co/{MODEL_REPO_ID} """
     parser = argparse.ArgumentParser()
