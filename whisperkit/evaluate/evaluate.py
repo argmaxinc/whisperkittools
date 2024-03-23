@@ -90,8 +90,8 @@ def evaluate(whisper_pipeline: Union[pipelines.WhisperPipeline, pipelines.Whispe
             int(bool(_num_fallbacks)) for _num_fallbacks in num_fallbacks
         ]) / len(num_fallbacks)
         fallback_str = "-------------------------------------------------------"
-        fallback_str += f"\nTotal fallbacks: {total_fallbacks}"
-        fallback_str += "\nSamples with fallback: "
+        fallback_str += f"\n    Total fallbacks: {total_fallbacks}"
+        fallback_str += "\n    Samples with fallback: "
         fallback_str += f"{samples_with_fallback_percent * 100.:.3g}%"
 
     # Failed example bookkeeping
