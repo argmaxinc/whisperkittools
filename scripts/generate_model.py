@@ -13,12 +13,15 @@ from pprint import pprint
 
 from argmaxtools import _sdpa
 from argmaxtools.utils import get_logger
+from argmaxtools import test_utils
 from huggingface_hub import HfApi, hf_hub_download
 
 from tests import test_audio_encoder, test_text_decoder
 from whisperkit._constants import COMPRESSION_REPO_ID, MODEL_REPO_ID
 
 logger = get_logger(__name__)
+
+test_utils.TEST_MIN_SPEEDUP_VS_CPU = 0.3
 
 
 def cli():
@@ -92,6 +95,14 @@ def cli():
         args.persistent_cache_dir += f"_{args.repo_path_suffix}"
 
     logger.info(f"Generating {args.model_version} files")
+
+    # FIXME(atiorh): Remove this once distil-whisper-* models are updated
+    args.disable_token_timestamps = False
+    if "distil-whisper" in args.model_version:
+        logger.info(
+            "Disabling token-level timestamps due to missing alignment_heads in distil-whisper-* models"
+        )
+        args.disable_token_timestamps = True
 
     # Generate WhisperTextDecoder
     args.test_seq_len = args.text_decoder_max_sequence_length
