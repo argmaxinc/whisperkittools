@@ -98,7 +98,7 @@ def cli():
 
     # FIXME(atiorh): Remove this once distil-whisper-* models are updated
     args.disable_token_timestamps = False
-    if "distil-whisper" in args.model_version:
+    if "distil" in args.model_version and "distil-large-v3" not in args.model_version:
         logger.info(
             "Disabling token-level timestamps due to missing alignment_heads in distil-whisper-* models"
         )
