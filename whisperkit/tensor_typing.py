@@ -9,7 +9,10 @@ from torch import Tensor
 
 # audio_encoder.WhisperMelSpectrogram type hints
 # Default Whisper input is at 16kHz for 30s: 480000
-WhisperMelSpectrogramInputType = Float[Tensor, "num_audio_samples"]
+WhisperMelSpectrogramInputType = Union[
+    Float[Tensor, "num_audio_samples"],
+    Float[Tensor, "1 num_audio_samples"],
+]
 WhisperMelSpectrogramOutputType = Float[Tensor, "1 num_mel_bins 1 2*encoder_seq_len"]
 
 # audio_encoder.WhisperAudioEncoder type hints

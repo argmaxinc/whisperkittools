@@ -17,16 +17,26 @@ setup(
         "argmaxtools",
         "transformers",
         "huggingface-hub",
-        "evaluate",
-        "datasets",
-        "librosa",
-        "soundfile",
-        "jiwer",
         "tabulate",
-        "mlx",
-        "tiktoken",
-        "openai"
     ],
+    extras_require={
+        "pipelines": [
+            "openai",
+            "mlx",
+        ],
+        "evals": [
+            "mlx",
+            "jiwer",
+            "soundfile",
+            "librosa",
+            "datasets",
+            "evaluate"
+        ],
+        "android": [
+            "qai-hub",
+            "qai_hub_models"
+        ]
+    },
     packages=find_packages(),
     entry_points={
         "console_scripts": [
@@ -43,6 +53,7 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Topic :: Scientific/Engineering",
         "Topic :: Software Development",
     ],
