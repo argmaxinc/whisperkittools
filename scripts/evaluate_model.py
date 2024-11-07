@@ -103,5 +103,4 @@ def cli():
             args.dataset = dataset
             args.pipeline = "WhisperKit"
             args.num_samples = -1
-            args.upload_results = True
             test_evaluate.main(args)
