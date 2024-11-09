@@ -70,7 +70,7 @@ If the above command is successfuly executed, your model will have been publishe
 Evaluate ([Argmax-](https://huggingface.co/argmaxinc/whisperkit-coreml) or developer-published) models on speech recognition datasets:
 
 ```shell
-whisperkit-evaluate-model --model-version <model-version> --output-dir <output-dir> --dataset {librispeech-debug,librispeech,earnings22}
+whisperkit-evaluate-model --model-version <model-version> --output-dir <output-dir> --evaluation-dataset {librispeech-debug,librispeech,earnings22}
 ```
 By default, this command uses the latest `main` branch commits from `WhisperKit` and searches within [Argmax-published](https://huggingface.co/argmaxinc/whisperkit-coreml) model repositories. For optional arguments related to code and model versioning, please see the help menu with `-h`
 
@@ -85,7 +85,7 @@ If you would like to evaluate WhisperKit models on your own dataset:
 export CUSTOM_EVAL_DATASET="my-dataset-name-on-hub"
 export DATASET_REPO_OWNER="my-user-or-org-name-on-hub"
 export MODEL_REPO_ID="my-org/my-whisper-repo-name" # if evaluating self-published models
-whisperkit-evaluate-model --model-version <model-version> --output-dir <output-dir> --dataset my-dataset-name-on-hub
+whisperkit-evaluate-model --model-version <model-version> --output-dir <output-dir> --evaluation-dataset my-dataset-name-on-hub
 ```
 
 ## Python Inference
