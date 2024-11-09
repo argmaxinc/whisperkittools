@@ -54,7 +54,7 @@ def evaluate(whisper_pipeline: Union[pipelines.WhisperPipeline, pipelines.Whispe
 
         logger.info(f"Launching {num_proc} processes to run {whisper_pipeline.__class__.__name__}")
         with Pool(num_proc) as pool:
-            results = list(tqdm.tqdm(pool.map(
+            results = list(tqdm.tqdm(pool.imap(
                 partial(evaluate_sample, whisper_pipeline=whisper_pipeline), dataset),
                 total=len(dataset)
             ))
