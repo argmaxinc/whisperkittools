@@ -14,12 +14,6 @@ from argmaxtools.test_utils import (AppleSiliconContextMixin,
 from transformers.models.whisper import modeling_whisper
 
 
-class CoreMLSwiftComputeUnit(Enum):
-    ANE = "cpuAndNeuralEngine"
-    CPU = "cpuOnly"
-    GPU = "cpuAndGPU"
-
-
 class BenchmarkContext(AppleSiliconContextMixin, InferenceContextSpec):
     """ Context specifier to reproduce an inference context
     """

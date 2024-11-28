@@ -4,18 +4,19 @@
 #
 
 import json
+import mlx_whisper
+import openai
 import os
-import random
 import subprocess
+
 from abc import ABC, abstractmethod
 from typing import Optional
 
-import openai
 from argmaxtools.utils import _maybe_git_clone, get_logger
 from huggingface_hub import snapshot_download
 
 from whisperkit import _constants
-from whisperkit.test_utils import CoreMLSwiftComputeUnit
+
 
 logger = get_logger(__name__)
 
@@ -102,9 +103,9 @@ class WhisperKit(WhisperPipeline):
     """ Pipeline to clone, build and run the CLI from
     https://github.com/argmaxinc/WhisperKit
     """
-    _compute_unit: CoreMLSwiftComputeUnit = CoreMLSwiftComputeUnit.ANE
-    _randomize_dispatch: bool = False
     _word_timestamps: bool = False
+    _text_decoder_compute_engine = "cpuAndNeuralEngine"
+    _audio_encoder_compute_engine = "cpuAndGPU"
 
     def clone_repo(self):
         self.repo_dir, self.code_commit_hash = _maybe_git_clone(
@@ -155,37 +156,18 @@ class WhisperKit(WhisperPipeline):
         self.results_dir = os.path.join(self.models_dir, "results")
         os.makedirs(self.results_dir, exist_ok=True)
 
-    @property
-    def compute_unit(self) -> CoreMLSwiftComputeUnit:
-        return self._compute_unit
-
-    @compute_unit.setter
-    def compute_unit(self, value: str):
-        if value.lower() == "ane":
-            self._compute_unit = CoreMLSwiftComputeUnit.ANE
-        elif value.lower() == "gpu":
-            self._compute_unit = CoreMLSwiftComputeUnit.GPU
-        elif value.lower() == "ane_or_gpu":
-            # FIXME(atiorh): Remove this once we have an integrated multi-engine async dispatch
-            self._compute_unit = CoreMLSwiftComputeUnit.ANE if random.random() > 0.5 \
-                    else CoreMLSwiftComputeUnit.GPU
-            logger.info("Randomizing compute unit")
-
-        logger.info(f"Set compute unit: {self._compute_unit}")
-
     def transcribe(self, audio_file_path: str) -> str:
         """ Transcribe an audio file using the WhisperKit CLI
         """
-        if self._randomize_dispatch:
-            self.compute_unit = "ane_or_gpu"
-
         cmd = " ".join([
             self.cli_path,
             "transcribe",
             "--audio-path", audio_file_path,
             "--model-path", self.models_dir,
-            "--text-decoder-compute-units", self.compute_unit.value,
-            "--audio-encoder-compute-units", self.compute_unit.value,
+            "--text-decoder-compute-units", self._text_decoder_compute_engine,
+            "--audio-encoder-compute-units", self._audio_encoder_compute_engine,
+            "--chunking-strategy", "vad",
+            "--concurrent-worker-count", "16",
             "--report-path", self.results_dir, "--report",
             "--word-timestamps" if self._word_timestamps else "",
         ])
@@ -235,15 +217,14 @@ class WhisperCpp(WhisperPipeline):
 
     def build_cli(self):
         ENV_PREFIX = ""
-        if self.quant_variant() is None:
-            # whisper.cpp doesn't provide quantized Core ML models
-            # Only use Core ML for non-quantized model versions
-            ENV_PREFIX = "WHISPER_COREML=1"
+
+        self.model_version_str = self.whisper_version.rsplit('/')[-1].replace("whisper-", "")
 
         self.cli_path = os.path.join(self.repo_dir, "main")
         if not os.path.exists(self.cli_path):
-            commands = ["make clean", f"{ENV_PREFIX} make -j"]
+            commands = ["make clean", f"{ENV_PREFIX} make -j {self.model_version_str}"]
             for command in commands:
+                print(command)
                 if subprocess.check_call(command, cwd=self.repo_dir, shell=True):
                     raise subprocess.CalledProcessError(f"Failed to run: `{command}`")
             logger.info("Successfuly built whisper.cpp CLI")
@@ -255,43 +236,10 @@ class WhisperCpp(WhisperPipeline):
         (only the ones needed for `self.whisper_version`)
         """
         self.models_dir = os.path.join(self.repo_dir, "models")
-        os.makedirs(self.models_dir, exist_ok=True)
-
-        model_version_str = self.whisper_version.rsplit('/')[-1].replace("openai_whisper-", "")
-
-        quant_variant = self.quant_variant()
-        if quant_variant is None:
-            # Download pre-compiled Core ML models from Hugging Face
-            mlmodelc_fname = f"ggml-{model_version_str}-encoder.mlmodelc"
-            snapshot_download(
-                repo_id="ggerganov/whisper.cpp",
-                allow_patterns=mlmodelc_fname + ".zip",
-                revision=self.model_commit_hash,
-                local_dir=self.models_dir,
-                local_dir_use_symlinks=True
-            )
-
-            # Unzip mlmodelc.zip
-            if not os.path.exists(os.path.join(self.models_dir, mlmodelc_fname)):
-                if subprocess.check_call(" ".join([
-                    "unzip", os.path.join(self.models_dir, mlmodelc_fname + ".zip"),
-                    "-d", self.models_dir,
-                ]), cwd=self.repo_dir, shell=True):
-                    raise subprocess.CalledProcessError("Failed to unzip Core ML model")
 
         # Download other model files (Only the encoder is a Core ML model)
         self.ggml_model_path = os.path.join(
-            self.models_dir, f"ggml-{model_version_str}.bin")
-
-        if not os.path.exists(self.ggml_model_path):
-            download_script = os.path.join(self.repo_dir, "models", "download-ggml-model.sh")
-            if subprocess.check_call(" ".join([
-                download_script,
-                model_version_str,
-            ]), cwd=self.repo_dir, shell=True):
-                raise subprocess.CalledProcessError("Failed to download ggml model")
-
-            logger.info("Downloaded ggml model: ", self.ggml_model_path)
+            self.models_dir, f"ggml-{self.model_version_str}.bin")
 
     def preprocess_audio_file(self, audio_file_path: str) -> str:
         if os.path.splitext(audio_file_path)[-1] == "wav":
@@ -336,17 +284,23 @@ class WhisperCpp(WhisperPipeline):
                 audio_file_path.rsplit("/")[-1].rsplit(".")[0] + ".wav"
             )
 
-            cli_result = subprocess.run(" ".join([
-                    self.cli_path,
-                    "-m", self.ggml_model_path,
-                    "--beam-size", "1",
-                    "--no-timestamps",
-                    "-f", processed_file_path,
-                ]),
+            cmd = " ".join([
+                self.cli_path,
+                "-m", self.ggml_model_path,
+                "--beam-size", "1",
+                "--no-timestamps",
+                "--flash-attn",
+                "-f", processed_file_path,
+            ])
+            print(cmd)
+
+            cli_result = subprocess.run(
+                cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
                 shell=True, text=True
             ).stdout.strip()
+
 
             if not cli_result:
                 raise RuntimeError("Failed to transcribe audio file")
@@ -354,39 +308,39 @@ class WhisperCpp(WhisperPipeline):
             return {"text": cli_result}
 
 
+MLX_HF_REPO_MAP = {
+    "openai/whisper-tiny": "mlx-community/whisper-tiny-mlx",
+    "openai/whisper-tiny.en": "mlx-community/whisper-tiny.en-mlx",
+    "openai/whisper-base": "mlx-community/whisper-base-mlx",
+    "openai/whisper-small": "mlx-community/whisper-small-mlx",
+    "openai/whisper-large-v3": "mlx-community/whisper-large-v3-mlx",
+    "openai/whisper-large-v3-turbo": "mlx-community/whisper-large-v3-turbo",
+}
+
+
 class WhisperMLX(WhisperPipeline):
-    """ Pipeline to clone, build and run the Python pipeline from
-    git@github.com:ml-explore/mlx-examples.git
+    """ Pipeline to run MLX Whisper
     """
     def clone_repo(self):
-        self.repo_dir, self.code_commit_hash = _maybe_git_clone(
-            out_dir=self.out_dir,
-            hub_url="github.com",
-            repo_name="mlx-examples",
-            repo_owner="ml-explore",
-            commit_hash=self.code_commit_hash)
+        self.repo_dir = "."
 
     def build_cli(self):
-        self.cli_path = "N/A"
+        self.cli_path = None
 
     def clone_models(self):
-        self.models_dir = "N/A"
+        self.models_dir = None
 
     def transcribe(self, audio_file_path: str) -> str:
         """ Transcribe an audio file using MLX
         """
-        text = subprocess.run(" ".join([
-            "python", "-c",
-            "'import sys;",
-            "sys.path.append(\"" + self.repo_dir + "/whisper\");",
-            "import whisper;",
-            "print(whisper.transcribe(\"" + audio_file_path + "\",",
-            "path_or_hf_repo = \"mlx-community/" + self.whisper_version.rsplit('/')[-1] + "-mlx\",",
-            "fp16=True,",
-            # "temperature=(0,),",
-            ")[\"text\"])'"
-        ]), stdout=subprocess.PIPE, shell=True, text=True).stdout.strip()
-        return {"text": text}
+        # Note 1: `condition_on_previous_text=True` causes repetitions
+        # Note 2: beam_search is not implemented so no need to set it to 1
+        return mlx_whisper.transcribe(
+            audio_file_path,
+            path_or_hf_repo=MLX_HF_REPO_MAP[self.whisper_version],
+            condition_on_previous_text=False,
+
+        )
 
 
 class WhisperOpenAIAPI:
