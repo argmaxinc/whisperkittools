@@ -18,7 +18,7 @@ from whisperkit.evaluate.normalize_en import EnglishTextNormalizer
 logger = get_logger(__name__)
 
 text_normalizer = EnglishTextNormalizer()
-wer_metric = evaluate.load("EduardoPacheco/argwer")
+wer_metric = evaluate.load("argmaxinc/detailed-wer")
 
 
 def evaluate(whisper_pipeline: Union[pipelines.WhisperPipeline, pipelines.WhisperOpenAIAPI],
@@ -74,14 +74,6 @@ def evaluate(whisper_pipeline: Union[pipelines.WhisperPipeline, pipelines.Whispe
     # Get average WER and its breakdown
     keys = ["wer", "substitution_rate", "deletion_rate", "insertion_rate"]
     avg_wer = {k: round(100 * avg_wer_result[k], 2) for k in keys}
-    avg_wer_str = f"""
-    \t\tWER = Sr + Dr + Ir
-    WER: {avg_wer["wer"]:.2f}%
-    Substitution rate: {avg_wer["substitution_rate"]:.2f}%
-    Deletion rate: {avg_wer["deletion_rate"]:.2f}%
-    Insertion rate: {avg_wer["insertion_rate"]:.2f}%
-    """
-
 
     tot_audio_duration = sum([result["audio_duration"] for result in results])
     tot_prediction_duration = sum([result["prediction_duration"] for result in results])
@@ -120,11 +112,11 @@ def evaluate(whisper_pipeline: Union[pipelines.WhisperPipeline, pipelines.Whispe
     Dataset:\t{dataset_name} {'(num_samples=' + str(num_samples) + ')' if num_samples > 1 else ''}
     Model:\t{whisper_pipeline.whisper_version}
     -------------------------------------------------------
-                    WER = Sr + Dr + Ir
-    WER:\t{avg_wer}%
-    Sr:\t{avg_wer["substitution_rate"]}%
-    Dr:\t{avg_wer["deletion_rate"]}%
-    Ir:\t{avg_wer["insertion_rate"]}%
+          WER = Substitution + Deletion + Insertion
+    WER:\t\t{avg_wer["wer"]}
+    Substitutions:\t{avg_wer["substitution_rate"]}
+    Deletions:\t\t{avg_wer["deletion_rate"]}
+    Insertions:\t\t{avg_wer["insertion_rate"]}
     -------------------------------------------------------
     RTF (per-clip average):\t{sample_average_rtf:.3g}
     RTF (global average):\t{global_rtf:.3g}
