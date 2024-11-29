@@ -17,15 +17,13 @@ setup(
         "argmaxtools",
         "transformers",
         "huggingface-hub",
-        "tabulate",
     ],
     extras_require={
         "pipelines": [
             "openai",
-            "mlx",
+            "mlx-whisper",
         ],
         "evals": [
-            "mlx",
             "jiwer",
             "soundfile",
             "librosa",

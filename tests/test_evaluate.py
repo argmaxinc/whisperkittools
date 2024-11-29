@@ -90,6 +90,7 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
         out_path = os.path.join(TEST_CACHE_DIR, "results.json")
         with open(out_path, "w") as f:
             json.dump(cls.results, f, indent=2)
+        logger.info(f"Saved results to {out_path}")
 
         if TEST_UPLOAD_RESULTS:
             results_dir = os.path.join(
@@ -101,6 +102,7 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
                 ).strftime("%Y-%m-%d_%H:%M:%S_GMT%z") + ".json"
 
             api = HfApi()
+            logger.info(f"Uploading results to hf.co/datasets/{EVALS_REPO_ID}")
             api.upload_file(
                 path_or_fileobj=out_path,
                 path_in_repo=os.path.join(results_dir, results_fname),
@@ -110,11 +112,8 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
                                f"Eval {TEST_MODEL_VERSION} on {TEST_DATASET_NAME}",
             )
         else:
-            logger.info(
-                f"Skipped uploading results to hf.co/datasets/{EVALS_REPO_ID} "
-                "because dataset was not fully evaluated (--num-samples)"
-            )
-            pprint.pprint(cls.results)
+            logger.info(f"Skipped uploading results to hf.co/datasets/{EVALS_REPO_ID} ")
+            # pprint.pprint(cls.results)
 
     def test_evaluate(self):
         pass

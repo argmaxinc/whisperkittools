@@ -38,7 +38,7 @@ def evaluate(whisper_pipeline: Union[pipelines.WhisperPipeline, pipelines.Whispe
     begin = time.time()
 
     # Warm-up (model compilation without multi-processing)
-    logger.info("Warmup the pipeline using the first sample (discard the result)")
+    logger.info("Warmup the pipeline on a single sample (may trigger model download)")
     _ = evaluate_sample(dataset[0], whisper_pipeline)
 
     if num_proc > len(dataset):

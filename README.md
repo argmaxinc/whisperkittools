@@ -76,7 +76,7 @@ WhisperKit currently only supports Qualcomm AI Hub Whisper models on Hugging Fac
 whisperkittools generates 3 more support models for input preprocessing and output postprocessing used in the WhisperKitAndroid pipeline. These are all published on Hugging Face [here](https://huggingface.co/argmaxinc/whisperkit-android/tree/main). Nonetheless, you may regenerate these models if you wish by following these steps:
 - **Step 1**: Create an account at [aihub.qualcomm.com](aihub.qualcomm.com)
 - **Step 2**: Set your API key locally as `qai-hub configure --api_token`
-- **Step 3**: Install extra dependencies via `pip install '.[android]'` (Note that this requires `python<3.11`)
+- **Step 3**: Install extra dependencies via `pip install -e '.[android]'` (Note that this requires `python<3.11`)
 - **Step 4**: Execute `python tests/test_aihub.py --persistent-cache-dir <output-path>`
 
 Stay tuned for more options for generating models without creating an account and more model version coverage!
@@ -91,7 +91,7 @@ whisperkit-evaluate-model --model-version <model-version> --output-dir <output-d
 
 Install additional dependencies via:
 ```shell
-pip install '.[evals]'
+pip install -e '.[evals,pipelines]'
 ```
 
 By default, this command uses the latest `main` branch commits from `WhisperKit` and searches within [Argmax-published](https://huggingface.co/argmaxinc/whisperkit-coreml) model repositories. For optional arguments related to code and model versioning, please see the help menu with `-h`
@@ -120,7 +120,7 @@ Use the unified Python wrapper for several on-device Whisper frameworks:
 
 Install additional dependencies via:
 ```shell
-pip install '.[pipelines]'
+pip install -e '.[pipelines]'
 ```
 
 ```python

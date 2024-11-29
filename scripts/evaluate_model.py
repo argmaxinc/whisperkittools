@@ -4,12 +4,9 @@
 #
 
 import argparse
-import glob
 import os
 
 from argmaxtools.utils import get_logger
-from huggingface_hub import snapshot_download
-
 from tests import test_evaluate
 from whisperkit._constants import EVAL_DATASETS, EVALS_REPO_ID, MODEL_REPO_ID
 
@@ -53,11 +50,10 @@ def cli():
         default=None,
         help=f"hf.co/{MODEL_REPO_ID} commit hash. "
              "Uses main branch if not specified")
-    # TODO (atiorh): Remove after Swift async batching is implemented
     parser.add_argument(
         "--num-proc",
         type=int,
-        default=4,
+        default=1,
         help="Number of async processes to launch in parallel (to saturate compute resources)"
     )
     parser.add_argument(
@@ -72,35 +68,25 @@ def cli():
         help="If specified, evaluates all variants of the model with matching"
              "model version prefix, e.g. openai/whisper-large-v3_*"
     )
+    parser.add_argument(
+        "--pipeline",
+        type=str,
+        choices=("WhisperKit", "whisper.cpp", "WhisperMLX", "WhisperOpenAIAPI"),
+        required=True
+    )
 
     # Alias the CLI args to match the test scripts
     args = parser.parse_args()
 
-    model_versions = [args.model_version]
-    persistent_cache_dirs = [
-        os.path.join(args.output_dir, args.model_version.replace("/", "_"))]
+    args.persistent_cache_dir = os.path.join(args.output_dir, args.model_version.replace("/", "_"))
+    args.test_model_version = args.model_version
+    # Evaluate Whisper on benchmark tests
+    for dataset in args.evaluation_dataset:
+        logger.info(f"Evaluating {args.model_version} on {dataset}")
+        args.dataset = dataset
+        args.num_samples = -1
+        test_evaluate.main(args)
 
-    if args.evaluate_all_variants:
-        glob_pattern = args.model_version.replace("/", "_") + "*"
-        _ = snapshot_download(
-            repo_id=MODEL_REPO_ID,
-            repo_type="model",
-            local_dir=args.output_dir,
-            allow_patterns=glob_pattern
-        )
 
-        persistent_cache_dirs = glob.glob(os.path.join(args.output_dir, glob_pattern))
-        model_versions = [p.rsplit("/")[-1] for p in persistent_cache_dirs]
-
-    logger.info(f"Evaluating the following models: {model_versions}")
-
-    for model_version, persistent_cache_dir in zip(model_versions, persistent_cache_dirs):
-        args.persistent_cache_dir = persistent_cache_dir
-        args.test_model_version = model_version
-        # Evaluate Whisper on benchmark tests
-        for dataset in args.evaluation_dataset:
-            logger.info(f"Evaluating {model_version} on {dataset}")
-            args.dataset = dataset
-            args.pipeline = "WhisperKit"
-            args.num_samples = -1
-            test_evaluate.main(args)
+if __name__ == "__main__":
+    cli()
