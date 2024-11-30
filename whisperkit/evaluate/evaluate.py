@@ -18,7 +18,7 @@ from whisperkit.evaluate.normalize_en import EnglishTextNormalizer
 logger = get_logger(__name__)
 
 text_normalizer = EnglishTextNormalizer()
-wer_metric = evaluate.load("wer")
+wer_metric = evaluate.load("argmaxinc/detailed-wer")
 
 
 def evaluate(whisper_pipeline: Union[pipelines.WhisperPipeline, pipelines.WhisperOpenAIAPI],
@@ -66,11 +66,14 @@ def evaluate(whisper_pipeline: Union[pipelines.WhisperPipeline, pipelines.Whispe
 
     total_elapsed = time.time() - begin
 
-    avg_wer = wer_metric.compute(
+    avg_wer_result = wer_metric.compute(
         references=[result["reference"] for result in results],
         predictions=[result["prediction"] for result in results],
+        detailed=True,
     )
-    avg_wer = round(100 * avg_wer, 2)
+    # Get average WER and its breakdown
+    keys = ["wer", "substitution_rate", "deletion_rate", "insertion_rate"]
+    avg_wer = {k: round(100 * avg_wer_result[k], 2) for k in keys}
 
     tot_audio_duration = sum([result["audio_duration"] for result in results])
     tot_prediction_duration = sum([result["prediction_duration"] for result in results])
@@ -109,7 +112,11 @@ def evaluate(whisper_pipeline: Union[pipelines.WhisperPipeline, pipelines.Whispe
     Dataset:\t{dataset_name} {'(num_samples=' + str(num_samples) + ')' if num_samples > 1 else ''}
     Model:\t{whisper_pipeline.whisper_version}
     -------------------------------------------------------
-    WER:\t{avg_wer}
+          WER = Substitution + Deletion + Insertion
+    WER:\t\t{avg_wer["wer"]}
+    Substitutions:\t{avg_wer["substitution_rate"]}
+    Deletions:\t\t{avg_wer["deletion_rate"]}
+    Insertions:\t\t{avg_wer["insertion_rate"]}
     -------------------------------------------------------
     RTF (per-clip average):\t{sample_average_rtf:.3g}
     RTF (global average):\t{global_rtf:.3g}
@@ -149,15 +156,18 @@ def evaluate_sample(sample, whisper_pipeline):
         logger.warning(f"Missing audio duration in sample: {sample['norm_path']}, imputed with 0")
         audio_duration = 0
 
+    wer_result = wer_metric.compute(
+        references=[sample["norm_text"]],
+        predictions=[normalized_predicted_text],
+        detailed=True # Return detailed results
+    )
+
     return dict(
         audio_duration=audio_duration,
         reference=sample["norm_text"],
         prediction=normalized_predicted_text,
         prediction_duration=duration,
         file=audio_file_path .split('/')[-1],
-        wer=wer_metric.compute(
-            references=[sample["norm_text"]],
-            predictions=[normalized_predicted_text]
-        ),
+        **wer_result,
         num_fallbacks=num_fallbacks,
     )
