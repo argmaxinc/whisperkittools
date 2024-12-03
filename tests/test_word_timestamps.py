@@ -29,7 +29,7 @@ class TestWordTimestamps(unittest.TestCase):
     """
     @classmethod
     def setUpClass(cls):
-        cls.pipeline = WhisperKit(whisper_version="openai_whisper-tiny.en", out_dir="external")
+        cls.pipeline = WhisperKit(whisper_version="openai/whisper-tiny.en", out_dir="external")
         cls.pipeline._word_timestamps = True
 
         with open(hf_hub_download(

@@ -24,7 +24,7 @@ jobs:
     - name: Setup Conda Environment
       shell: bash -el {0}
       run: |
-          pip install -e .
+          pip install -e .[evals,pipelines]
           pip install flake8
     - name: Print system information
       shell: bash -el {0}
