@@ -18,6 +18,7 @@ import unicodedata
 from fractions import Fraction
 from typing import Iterator, List, Match, Optional, Union
 from whisperkit.evaluate.abbreviations_en import abbr
+from transliterate import translit
 import regex
 
 
@@ -91,6 +92,12 @@ class BasicTextNormalizer:
         s = re.sub(r"\s+", " ", s)  # replace any successive whitespace characters with a space
 
         return s
+
+
+class Cyrillic2LatinTextNormalizer(BasicTextNormalizer):
+    def __call__(self, s: str):
+        s = translit(s, "ru", reversed=True)
+        return super().__call__(s)
 
 
 class EnglishNumberNormalizer:

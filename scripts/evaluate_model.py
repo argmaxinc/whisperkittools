@@ -74,6 +74,17 @@ def cli():
         choices=("WhisperKit", "whisper.cpp", "WhisperMLX", "WhisperOpenAIAPI"),
         required=True
     )
+    parser.add_argument(
+        "--force-language",
+        action="store_true",
+        help="If specified, forces the language in each data sample (if available)"
+    )
+    parser.add_argument(
+        "--language-subset",
+        type=str,
+        default=None,
+        help="If specified, filters the dataset for the given language"
+    )
 
     # Alias the CLI args to match the test scripts
     args = parser.parse_args()
