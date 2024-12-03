@@ -23,12 +23,18 @@ setup(
             "openai",
             "mlx-whisper",
         ],
+        "diarization": [
+            "pyannote-audio",
+        ],
         "evals": [
             "jiwer",
             "soundfile",
             "librosa",
             "datasets",
-            "evaluate"
+            "evaluate",
+            "transliterate",
+            "openai",
+            "mlx-whisper",
         ],
         "android": [
             "qai-hub",

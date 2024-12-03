@@ -11,13 +11,15 @@
 # whisperkittools
 </div>
 
-![Unit and Functional Tests](https://github.com/argmaxinc/whisperkittools/actions/workflows/public-ci.yml/badge.svg)
-
++![Unit and Functional Tests](https://github.com/argmaxinc/whisperkittools/actions/workflows/public-ci.yml/badge.svg)
 
 Python tools for [WhisperKit](https://github.com/argmaxinc/whisperkit) and [WhisperKitAndroid](https://github.com/argmaxinc/WhisperKitAndroid)
 - Convert PyTorch Whisper models to WhisperKit format
 - Apply custom inference optimizations and model compression
 - Evaluate Whisper using WhisperKit and other Whisper implementations on benchmarks
+
+[!IMPORTANT]
+If you are looking for more features such as speaker diarization and upgraded performance, check out [WhisperKit Pro](https://huggingface.co/argmaxinc/whisperkit-pro)!
 
 ## Table of Contents
 - [Installation](#installation)
@@ -131,7 +133,7 @@ print(pipe("audio.{wav,flac,mp3}"))
 ```
 
 **Note:** `WhisperCpp` requires `ffmpeg` to be installed. Recommended installation is with `brew install ffmpeg`
-**Note:** `WhisperOpenAIAPU` requires setting `OPENAI_API_KEY` as an environment variable
+**Note:** `WhisperOpenAIAPI` requires setting `OPENAI_API_KEY` as an environment variable
 
 ## Example SwiftUI App
 [TestFlight](https://testflight.apple.com/join/LPVOyJZW)
@@ -144,9 +146,10 @@ This app serves two purposes:
 
 Note that the app is in beta and we are actively seeking feedback to improve it before widely distributing it.
 
-## <a name="qoi"></a> WhisperKit Evaluation Results
+## <a name="qoi"></a> WhisperKit Quality and Performance Benchmarks
 
-TODO: Link to Hugging Face benchmark page
+Please visit the [WhisperKit Benchmarks](https://huggingface.co/spaces/argmaxinc/whisperkit-benchmarks) Hugging Face Space for detailed benchmark results. Here is a [brief explanation](https://x.com/argmaxinc/status/1851723587423756680) to help with navigation of the results. This benchmark is updated for every non-patch release on virtually all supported devices.
+
 
 ## FAQ
 
@@ -155,7 +158,7 @@ TODO: Link to Hugging Face benchmark page
 
 
 ## Citation
-If you use WhisperKit for something cool or just find it useful, please drop us a note at [info@takeargmax.com](mailto:info@takeargmax.com)!
+If you use WhisperKit for something cool or just find it useful, please drop us a note at [info@argmaxinc.com](mailto:info@argmaxinc.com)!
 
 If you use WhisperKit for academic work, here is the BibTeX:
 
