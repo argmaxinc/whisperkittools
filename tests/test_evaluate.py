@@ -6,7 +6,6 @@
 import datetime
 import json
 import os
-import pprint
 import subprocess
 import unittest
 
@@ -178,6 +177,8 @@ if __name__ == "__main__":
     parser.add_argument("--model-commit-hash", type=str, default=None)
     parser.add_argument("--num-proc", type=int, default=1)
     parser.add_argument("--upload-results", action="store_true")
+    parser.add_argument("--language-subset", type=str, default=None)
+    parser.add_argument("--force-language", action="store_true")
     args = parser.parse_args()
 
     main(args)

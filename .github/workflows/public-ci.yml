@@ -44,6 +44,10 @@ jobs:
       shell: bash -el {0}
       run: |
           TEST_DEV=cpu $(which python) tests/test_audio_encoder.py 
+    - name: Evaluate Unit Tests
+      shell: bash -el {0}
+      run: |
+          $(which python) tests/test_evaluate.py --dataset librispeech-debug --pipeline WhisperKit
     - name: Lint
       shell: bash -el {0}
       run: |
