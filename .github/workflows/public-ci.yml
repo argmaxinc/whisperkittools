@@ -44,10 +44,14 @@ jobs:
       shell: bash -el {0}
       run: |
           TEST_DEV=cpu $(which python) tests/test_audio_encoder.py 
-    - name: Evaluate Unit Tests
+    - name: Evaluate Unit Test
       shell: bash -el {0}
       run: |
           $(which python) tests/test_evaluate.py --dataset librispeech-debug --pipeline WhisperKit
+    - name: Folder Evaluate Unit Test
+      shell: bash -el {0}
+      run: |
+          $(which python) tests/test_evaluate.py --dataset common_voice_17_0-debug-zip --pipeline WhisperKit --language-subset en
     - name: Lint
       shell: bash -el {0}
       run: |
