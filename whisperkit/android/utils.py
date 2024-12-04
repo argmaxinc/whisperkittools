@@ -36,6 +36,7 @@ CHIPSET_TABLE = {
     "gen3": "qualcomm-snapdragon-8gen3",
 }
 
+
 def get_hub_compile_options(
     delegate: str = "qnn",
     other_compile_options: str = "",
@@ -68,12 +69,12 @@ def get_hub_compile_options(
                         break
 
             target_runtime_flag = target_runtime_flag or "qnn_lib_aarch64_android"
-            extra_target_options = f" --quantize_full_type float16"
+            extra_target_options = " --quantize_full_type float16"
         elif target_runtime == TargetRuntime.ONNX:
             target_runtime_flag = "onnx"
         elif target_runtime == TargetRuntime.TFLITE:
             target_runtime_flag = "tflite"
-            extra_target_options = f" --quantize_io"
+            extra_target_options = " --quantize_io"
         elif target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
             target_runtime_flag = "precompiled_qnn_onnx"
         else:
@@ -92,7 +93,14 @@ def get_hub_compile_options(
     return compile_options
 
 
-def convert_via_aihub(model_name, torch_model, inputs, target_runtime="tflite", benchmark_chipset="gen2", output_dir="."):
+def convert_via_aihub(
+        model_name,
+        torch_model,
+        inputs,
+        target_runtime="tflite",
+        benchmark_chipset="gen2",
+        output_dir="."
+):
     traced_torch_model = torch.jit.trace(
         torch_model,
         tuple(inputs.values()),
@@ -106,7 +114,7 @@ def convert_via_aihub(model_name, torch_model, inputs, target_runtime="tflite", 
         torch.int64: "int32",
     }
 
-    input_specs = {k:(v.shape, DTYPE_TABLE[v.dtype]) for k,v in inputs.items()}
+    input_specs = {k: (v.shape, DTYPE_TABLE[v.dtype]) for k, v in inputs.items()}
     hub_device = qai_hub.Device(attributes=f"chipset:{CHIPSET_TABLE[benchmark_chipset]}")
 
     compile_options = "--truncate_64bit_tensors"
@@ -141,7 +149,7 @@ def convert_via_aihub(model_name, torch_model, inputs, target_runtime="tflite", 
     inference_job = qai_hub.submit_inference_job(
         model=target_model,
         device=hub_device,
-        inputs={k:[v.numpy()] for k,v in inputs.items()}
+        inputs={k: [v.numpy()] for k, v in inputs.items()}
     )
 
     return {
@@ -153,7 +161,6 @@ def convert_via_aihub(model_name, torch_model, inputs, target_runtime="tflite", 
 def summarize_performance(ai_hub_profile_report):
     """ Summarize the profile job results from AI Hub
     """
-    num_ops = ai_hub_profile_report["execution_detail"]
     forward_latencies = np.array(ai_hub_profile_report["execution_summary"]["all_inference_times"])
 
     mean = np.mean(forward_latencies)
@@ -164,11 +171,15 @@ def summarize_performance(ai_hub_profile_report):
     outlier_incidence_rate = len(outlier_latencies) / len(forward_latencies)
     outlier_overhead_rate = sum(outlier_latencies) / (sum(inlier_latencies) + len(outlier_latencies) * mean)
 
-
     load_time = round(ai_hub_profile_report["execution_summary"]["all_warm_load_times"][0] / 1e3, 1)
-    on_device_compile_time = round(ai_hub_profile_report["execution_summary"]["all_first_load_times"][0] / 1e3, 1)
+    on_device_compile_time = round(
+        ai_hub_profile_report["execution_summary"]["all_first_load_times"][0] / 1e3,
+        1
+    )
 
-    compute_unit_dispatch = dict(Counter(layer["compute_unit"] for layer in ai_hub_profile_report["execution_detail"]))
+    compute_unit_dispatch = dict(
+        Counter(layer["compute_unit"] for layer in ai_hub_profile_report["execution_detail"])
+    )
 
     summary_str = f"""\n
 ================================================

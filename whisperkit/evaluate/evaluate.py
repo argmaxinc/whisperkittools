@@ -245,7 +245,7 @@ def evaluate_sample(sample, whisper_pipeline):
     wer_result = wer_metric.compute(
         references=[sample["norm_text"]],
         predictions=[normalized_predicted_text],
-        detailed=True # Return detailed results
+        detailed=True  # Return detailed results
     )
 
     return dict(

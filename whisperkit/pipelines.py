@@ -13,7 +13,6 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from argmaxtools.utils import _maybe_git_clone, get_logger
-from huggingface_hub import snapshot_download
 
 from whisperkit import _constants
 
