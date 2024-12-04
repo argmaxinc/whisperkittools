@@ -20,7 +20,7 @@ ANDROID_SUPPORTED_WHISPER_VERSIONS = [
     "tiny", "tiny.en", "base", "base.en", "small", "small.en"
 ]
 
-# Reference: 
+# Reference:
 # https://app.aihub.qualcomm.com/docs/hub/compile_examples.html#compiling-pytorch-model-to-a-qnn-model-library
 
 TARGET_TABLE = {

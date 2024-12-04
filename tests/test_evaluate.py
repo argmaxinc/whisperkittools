@@ -61,6 +61,12 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
             shell=True
         ).stdout.decode('utf-8').strip()[:7]
 
+        inference_context_spec_dict = None
+        try:
+            inference_context_spec_dict = cls.inference_context.spec_dict()
+        except Exception as e:
+            logger.warning(f"Inference context spec dict failed: {e}")
+
         cls.results = {
             "results": evaluate(
                 cls.pipeline,
@@ -76,7 +82,7 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
                 "dataset_name": TEST_DATASET_NAME,
                 "model_version": TEST_MODEL_VERSION,
                 "whisperkittools_commit_hash": wkt_commit_hash,
-                "inference_context": cls.inference_context.spec_dict(),
+                "inference_context": inference_context_spec_dict,
                 "model_repo_id": MODEL_REPO_ID
             }
         }
