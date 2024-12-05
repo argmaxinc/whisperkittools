@@ -10,7 +10,7 @@ from pathlib import Path
 from argmaxtools.utils import get_logger
 from huggingface_hub import snapshot_download
 
-from whisperkit._constants import DATASET_REPO_OWNER, EVAL_DATASETS
+from whisperkit._constants import DATASET_REPO_OWNER, EVAL_DATASETS, SUPPORTED_LANGUAGES
 from whisperkit.evaluate.normalize_en import EnglishTextNormalizer
 
 logger = get_logger(__name__)
@@ -18,9 +18,13 @@ logger = get_logger(__name__)
 text_normalizer = EnglishTextNormalizer()
 
 
-def get_dataset(dataset_name, cache_dir, max_num_samples=-1):
+def get_dataset(dataset_name, cache_dir, max_num_samples=-1, language_subset=None):
     if dataset_name not in EVAL_DATASETS:
         raise ValueError(f"Dataset not yet registered: {dataset_name}")
+
+    if language_subset is not None:
+        assert language_subset in SUPPORTED_LANGUAGES, f"Unsupported language: {language_subset}"
+        logger.info(f"Filtering dataset for language: {language_subset}")
 
     logger.info(f"""\n
         =======================================================
@@ -40,6 +44,21 @@ def get_dataset(dataset_name, cache_dir, max_num_samples=-1):
             local_dir=cache_dir,
             local_dir_use_symlinks=True
         )
+
+        # Unzip if necessary
+        zip_files = [f for f in os.listdir(cache_dir) if f.endswith('.zip')]
+        if len(zip_files) > 0:
+            logger.info(f"Unzipping {len(zip_files)} files")
+            for zip_file in zip_files:
+                zip_path = os.path.join(cache_dir, zip_file)
+                os.system(f"unzip -q -o {zip_path} -d {cache_dir}")
+                os.remove(zip_path)
+
+    has_folders = False
+    for path in os.listdir(cache_dir):
+        if os.path.isdir(os.path.join(cache_dir, path)) and not path.startswith("."):
+            has_folders = True
+            break
 
     audio_paths = _get_audio_paths(cache_dir)
     audio_paths = {path.split("/")[-1]: path for path in audio_paths}
@@ -73,14 +92,23 @@ def get_dataset(dataset_name, cache_dir, max_num_samples=-1):
             if key in batch:
                 break
         batch["original_text"] = batch[key]
-        batch["norm_text"] = text_normalizer(batch[key])
+        if not isinstance(batch[key], str):
+            logger.warning(f"non-string text dectected: {batch[key]} | Class: {type(batch[key])}")
+            logger.warning(f"Conversion to string: {str(batch[key])}")
+        batch["norm_text"] = text_normalizer(str(batch[key]))
 
         # Remove invalid samples
         drop = batch["norm_text"].strip() == "ignore time segment in scoring"
         drop = drop or batch["norm_text"].strip() == ""
 
+        # Filter by language
+        if language_subset is not None:
+            drop = drop or batch.get("language", None) != language_subset
+
         if drop:
             return None
+        if has_folders:
+            batch["norm_folder"] = "/".join(batch["norm_path"].split("/")[:-1])
         return batch
 
     original_num_samples = len(dataset)

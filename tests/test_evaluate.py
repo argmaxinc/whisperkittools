@@ -6,7 +6,6 @@
 import datetime
 import json
 import os
-import pprint
 import subprocess
 import unittest
 
@@ -17,6 +16,7 @@ from huggingface_hub import HfApi
 from whisperkit._constants import EVALS_REPO_ID, MODEL_REPO_ID
 from whisperkit.evaluate.datasets import EVAL_DATASETS
 from whisperkit.evaluate.evaluate import evaluate
+import whisperkit.evaluate.evaluate
 from whisperkit.pipelines import get_pipeline_cls
 from whisperkit.test_utils import BenchmarkContext
 
@@ -36,6 +36,7 @@ TEST_MODEL_VERSION = os.getenv("TEST_MODEL_VERSION", None) or \
 TEST_UPLOAD_RESULTS = os.getenv("TEST_UPLOAD_RESULTS", None) or False
 TEST_QOI_REFERENCE = os.getenv("TEST_QOI_REFERENCE", None) or None  # TODO
 AVG_WER_SANITY_CHECK_THR = 0.5
+LANGUAGE_SUBSET = None
 
 
 class TestWhisperPipelineEvaluate(unittest.TestCase):
@@ -60,13 +61,20 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
             shell=True
         ).stdout.decode('utf-8').strip()[:7]
 
+        inference_context_spec_dict = None
+        try:
+            inference_context_spec_dict = cls.inference_context.spec_dict()
+        except Exception as e:
+            logger.warning(f"Inference context spec dict failed: {e}")
+
         cls.results = {
             "results": evaluate(
                 cls.pipeline,
                 dataset_name=TEST_DATASET_NAME,
                 num_samples=TEST_NUM_SAMPLES,
                 cache_dir=TEST_CACHE_DIR,
-                num_proc=TEST_NUM_PROC),
+                num_proc=TEST_NUM_PROC,
+                language_subset=LANGUAGE_SUBSET),
             "metadata": {
                 "num_samples": TEST_NUM_SAMPLES,
                 "num_proc": TEST_NUM_PROC,
@@ -74,7 +82,7 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
                 "dataset_name": TEST_DATASET_NAME,
                 "model_version": TEST_MODEL_VERSION,
                 "whisperkittools_commit_hash": wkt_commit_hash,
-                "inference_context": cls.inference_context.spec_dict(),
+                "inference_context": inference_context_spec_dict,
                 "model_repo_id": MODEL_REPO_ID
             }
         }
@@ -96,7 +104,9 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
             results_dir = os.path.join(
                 TEST_PIPELINE,
                 TEST_MODEL_VERSION.replace("/", "_"),
-                TEST_DATASET_NAME
+                TEST_DATASET_NAME,
+                "forced" if whisperkit.evaluate.evaluate.FORCE_LANGUAGE else "",
+                LANGUAGE_SUBSET if LANGUAGE_SUBSET else ""
             )
             results_fname = datetime.datetime.now().astimezone(
                 ).strftime("%Y-%m-%d_%H:%M:%S_GMT%z") + ".json"
@@ -122,7 +132,7 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
 def main(args):
     global TEST_DATASET_NAME, TEST_PIPELINE, TEST_NUM_SAMPLES, TEST_CACHE_DIR, \
            TEST_MODEL_VERSION, TEST_CODE_COMMIT_HASH, TEST_MODEL_COMMIT_HASH, \
-           TEST_NUM_PROC, TEST_UPLOAD_RESULTS, TEST_QOI_REFERENCE
+           TEST_NUM_PROC, TEST_UPLOAD_RESULTS, TEST_QOI_REFERENCE, LANGUAGE_SUBSET
     TEST_DATASET_NAME = args.dataset
     TEST_PIPELINE = args.pipeline
     TEST_NUM_SAMPLES = args.num_samples
@@ -132,6 +142,10 @@ def main(args):
     TEST_MODEL_COMMIT_HASH = args.model_commit_hash
     TEST_NUM_PROC = args.num_proc
     TEST_UPLOAD_RESULTS = args.upload_results
+    LANGUAGE_SUBSET = args.language_subset
+
+    # Force language option
+    whisperkit.evaluate.evaluate.FORCE_LANGUAGE = args.force_language
 
     with argmaxtools_test_utils._get_test_cache_dir(
         args.persistent_cache_dir
@@ -169,6 +183,8 @@ if __name__ == "__main__":
     parser.add_argument("--model-commit-hash", type=str, default=None)
     parser.add_argument("--num-proc", type=int, default=1)
     parser.add_argument("--upload-results", action="store_true")
+    parser.add_argument("--language-subset", type=str, default=None)
+    parser.add_argument("--force-language", action="store_true")
     args = parser.parse_args()
 
     main(args)

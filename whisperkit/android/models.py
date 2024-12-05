@@ -51,7 +51,7 @@ class DecomposedSTFT(nn.Module):
                                    np.imag(fourier_basis[:self.cutoff, :])])
         forward_basis = torch.FloatTensor(fourier_basis[:, None, :])
 
-        assert(filter_length >= self.win_length)
+        assert (filter_length >= self.win_length)
         fft_window = get_window(window, self.win_length, fftbins=True)
         fft_window = pad_center(fft_window, size=filter_length)
         fft_window = torch.from_numpy(fft_window).float()
@@ -91,14 +91,14 @@ class WhisperMelSpectrogram(nn.Module):
         )
 
         self.stft = DecomposedSTFT(
-            filter_length=self.n_fft, 
-            hop_length=self.hop_length, 
+            filter_length=self.n_fft,
+            hop_length=self.hop_length,
             win_length=self.n_fft,
             window='hann'
         )
 
     def forward(self, audio: tt.WhisperMelSpectrogramInputType) -> tt.WhisperMelSpectrogramOutputType:
-        
+
         transformed = self.stft(audio)
         magnitudes = transformed[..., :-1]
         mel_spec = self.mel_filters @ magnitudes
@@ -118,7 +118,7 @@ class WhisperDecoderPostProc(nn.Module):
     def forward(self, logits):
         TOKEN_TIMESTAMP_BEGIN = 50363
         TOKEN_NO_SPEECH = 50361
-        
+
         # logprobs = F.log_softmax(logits, dim=0)
         logprobs = torch.log(F.softmax(logits, dim=0))
         timestamp_logprob = torch.logsumexp(logprobs[TOKEN_TIMESTAMP_BEGIN:], dim=0)

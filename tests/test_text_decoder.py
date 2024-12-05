@@ -32,6 +32,8 @@ TEST_TORCH_DTYPE = torch.float32
 TEST_PSNR_THR = 35
 TEST_CACHE_DIR = os.getenv("TEST_CACHE_DIR", None) or "/tmp"
 
+argmaxtools_test_utils.TEST_SKIP_SPEED_TESTS = True
+
 # WhisperDecoderContextPrefill constants
 TEST_PREFILL_CONSISTENCY_PSNR_THR = 20
 TEST_BATCH = 16

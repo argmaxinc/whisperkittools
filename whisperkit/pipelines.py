@@ -73,12 +73,12 @@ class WhisperPipeline(ABC):
         pass
 
     @abstractmethod
-    def transcribe(self, audio_file_path: str) -> str:
+    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None) -> str:
         """ Transcribe an audio file using the Whisper pipeline
         """
         pass
 
-    def __call__(self, audio_file_path: str) -> str:
+    def __call__(self, audio_file_path: str, forced_language: Optional[str] = None) -> str:
         if not os.path.exists(audio_file_path):
             raise FileNotFoundError(audio_file_path)
 
@@ -88,7 +88,7 @@ class WhisperPipeline(ABC):
         -------------------------------------------------------
         =======================================================
         """)
-        cli_result = self.transcribe(audio_file_path)
+        cli_result = self.transcribe(audio_file_path, forced_language=forced_language)
         logger.info(f"""\n
         =======================================================
         Transcription result for {audio_file_path.rsplit("/")[-1]}:
@@ -133,24 +133,45 @@ class WhisperKit(WhisperPipeline):
         """ Download WhisperKit model files from Hugging Face Hub
         (only the files needed for `self.whisper_version`)
         """
-        self.models_dir = os.path.join(self.repo_dir, "models")  # dummy
-        self.results_dir = os.path.join(self.repo_dir, "results")
+        self.models_dir = os.path.join(
+            self.repo_dir, "Models", self.whisper_version.replace("/", "_"))
+
+        os.makedirs(self.models_dir, exist_ok=True)
+
+        snapshot_download(
+            repo_id=_constants.MODEL_REPO_ID,
+            allow_patterns=f"{self.whisper_version.replace('/', '_')}/*",
+            revision=self.model_commit_hash,
+            local_dir=os.path.dirname(self.models_dir),
+            local_dir_use_symlinks=True
+        )
+
+        if self.model_commit_hash is None:
+            self.model_commit_hash = subprocess.run(
+                f"git ls-remote git@hf.co:{_constants.MODEL_REPO_ID}",
+                shell=True, stdout=subprocess.PIPE
+            ).stdout.decode("utf-8").rsplit("\n")[0].rsplit("\t")[0]
+            logger.info(
+                "--model-commit-hash not specified, "
+                f"imputing with HEAD={self.model_commit_hash}")
+
+        self.results_dir = os.path.join(self.models_dir, "results")
         os.makedirs(self.results_dir, exist_ok=True)
 
-    def transcribe(self, audio_file_path: str) -> str:
+    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None) -> str:
         """ Transcribe an audio file using the WhisperKit CLI
         """
         cmd = " ".join([
             self.cli_path,
             "transcribe",
             "--audio-path", audio_file_path,
-            "--model-prefix", self.whisper_version.rsplit("/")[0],
-            "--model", self.whisper_version.rsplit("/")[1],
+            "--model-path", self.models_dir,
             "--text-decoder-compute-units", self._text_decoder_compute_units,
             "--audio-encoder-compute-units", self._audio_encoder_compute_units,
-            "--chunking-strategy", "vad",
+            # "--chunking-strategy", "vad",
             "--report-path", self.results_dir, "--report",
             "--word-timestamps" if self._word_timestamps else "",
+            "" if forced_language is None else f"--use-prefill-prompt --language {forced_language}",
         ])
 
         logger.debug(f"Executing command: {cmd}")
@@ -174,6 +195,59 @@ class WhisperKit(WhisperPipeline):
             results = {"text": "", "timings": {"totalDecodingFallbacks": 0}, "failed": True}
 
         return results
+
+    def transcribe_folder(self, audio_folder_path: str, forced_language: Optional[str] = None) -> str:
+        """ Transcribe an audio folder using the WhisperKit CLI
+        """
+        cmd = " ".join([
+            self.cli_path,
+            "transcribe",
+            "--audio-folder", audio_folder_path,
+            "--model-path", self.models_dir,
+            "--text-decoder-compute-units", self._text_decoder_compute_units,
+            "--audio-encoder-compute-units", self._audio_encoder_compute_units,
+            "--report-path", self.results_dir, "--report",
+            "--word-timestamps" if self._word_timestamps else "",
+            # "--concurrent-worker-count 1",
+            "--task transcribe",
+            "" if forced_language is None else f"--use-prefill-prompt --language {forced_language}",
+        ])
+
+        logger.debug(f"Executing command: {cmd}")
+        if subprocess.check_call(cmd, stdout=subprocess.PIPE, shell=True, text=True) != 0:
+            raise subprocess.CalledProcessError(f"Failed to transcribe folder: {audio_folder_path}")
+
+        audio_file_paths = os.listdir(audio_folder_path)
+        folder_results = {}
+        for audio_file_path in audio_file_paths:
+            result_path = os.path.join(
+                self.results_dir,
+                os.path.splitext(audio_file_path)[0] + ".json"
+            )
+
+            if not os.path.exists(result_path):
+                results = None
+                logger.warning(f"Result not found at {result_path}")
+
+            with open(result_path, "r") as f:
+                results = json.load(f)
+
+            if results is None or "text" not in results:
+                logger.warning(f"No text found in results: {results}")
+                results = {"text": "", "timings": {"totalDecodingFallbacks": 0}, "failed": True}
+
+            logger.info(
+                f"""\n
+                =======================================================
+                Transcription result for {audio_file_path.rsplit("/")[-1]}:
+                -------------------------------------------------------\n\n{results}
+                =======================================================
+                """
+            )
+
+            folder_results[os.path.join(audio_folder_path, audio_file_path)] = results
+
+        return folder_results
 
 
 class WhisperCpp(WhisperPipeline):
@@ -253,7 +327,7 @@ class WhisperCpp(WhisperPipeline):
             logger.info(f"Resampled {audio_file_path} to temporary file ({temp_path})")
             return tempfile_context
 
-    def transcribe(self, audio_file_path: str) -> str:
+    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None) -> str:
         """ Transcribe an audio file using the whisper.cpp CLI
         """
         with self.preprocess_audio_file(audio_file_path) as processed_file_dir:
@@ -272,6 +346,7 @@ class WhisperCpp(WhisperPipeline):
                 "--no-timestamps",
                 "--flash-attn",
                 "-f", processed_file_path,
+                "" if forced_language is None else f"-l {forced_language}"
             ])
             print(cmd)
 
@@ -281,7 +356,6 @@ class WhisperCpp(WhisperPipeline):
                 stderr=subprocess.DEVNULL,
                 shell=True, text=True
             ).stdout.strip()
-
 
             if not cli_result:
                 raise RuntimeError("Failed to transcribe audio file")
@@ -311,7 +385,7 @@ class WhisperMLX(WhisperPipeline):
     def clone_models(self):
         self.models_dir = None
 
-    def transcribe(self, audio_file_path: str) -> str:
+    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None) -> str:
         """ Transcribe an audio file using MLX
         """
         # Note 1: `condition_on_previous_text=True` causes repetitions
@@ -320,7 +394,7 @@ class WhisperMLX(WhisperPipeline):
             audio_file_path,
             path_or_hf_repo=MLX_HF_REPO_MAP[self.whisper_version],
             condition_on_previous_text=False,
-
+            language=None if forced_language is None else forced_language
         )
 
 

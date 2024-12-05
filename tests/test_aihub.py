@@ -12,9 +12,6 @@ from argmaxtools.utils import get_logger
 
 from whisperkit.android import models as android
 from whisperkit.android import utils as aihub_utils
-from whisperkit import audio_encoder as apple
-
-from tests.test_audio_encoder import TEST_N_SAMPLES
 
 TEST_VOCAB_SIZE = 51865
 TEST_PSNR_THR = 40
@@ -48,12 +45,11 @@ class TestAIHubModels(unittest.TestCase):
             }
         }
         super().setUpClass()
-    
+
     @classmethod
     def tearDownClass(cls):
         cls.models = None
         super().tearDownClass()
-
 
     def test_torch2torch_correctness(self):
         """ Test forward pass functionality and correctness of PyTorch models
@@ -70,8 +66,9 @@ class TestAIHubModels(unittest.TestCase):
                     logger.info(f"torch2torch model={model_key} PSNR={psnr:.3g}")
                 else:
                     logger.info(
-                        f"torch2torch correctness test skipped: Reference model does not exist for {model_key}")
-
+                        "torch2torch correctness test skipped: "
+                        f"Reference model does not exist for {model_key}"
+                    )
 
     def test_torch2aihub_performance_and_correctness(self):
         """ Test AI Hub compilation and inference job results against local PyTorch test results

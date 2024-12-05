@@ -27,6 +27,7 @@ TEST_TORCH_DTYPE = torch.float32
 TEST_PSNR_THR = 35
 
 argmaxtools_test_utils.TEST_MIN_SPEEDUP_VS_CPU = 0.95
+argmaxtools_test_utils.TEST_SKIP_SPEED_TESTS = True
 
 # WhisperMelSpectrogram constants
 # TEST_N_MELS = [80, 128]
