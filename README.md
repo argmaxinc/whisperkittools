@@ -18,8 +18,8 @@ Python tools for [WhisperKit](https://github.com/argmaxinc/whisperkit) and [Whis
 - Apply custom inference optimizations and model compression
 - Evaluate Whisper using WhisperKit and other Whisper implementations on benchmarks
 
-[!IMPORTANT]
-If you are looking for more features such as speaker diarization and upgraded performance, check out [WhisperKit Pro](https://huggingface.co/argmaxinc/whisperkit-pro)!
+> [!IMPORTANT]
+> If you are looking for more features such as speaker diarization and upgraded performance, check out [WhisperKit Pro](https://huggingface.co/argmaxinc/whisperkit-pro)!
 
 ## Table of Contents
 - [Installation](#installation)
