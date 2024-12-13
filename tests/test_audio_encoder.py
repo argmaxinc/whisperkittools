@@ -134,10 +134,19 @@ class TestWhisperMelSpectrogram(
 
     @classmethod
     def setUpClass(cls):
-        with open(
-            hf_hub_download(repo_id=TEST_WHISPER_VERSION, filename="config.json"), "r"
-        ) as f:
-            n_mels = json.load(f)["num_mel_bins"]
+        # Try loading config from local path first
+        config_path = os.path.join(TEST_WHISPER_VERSION, "config.json")
+        if os.path.exists(config_path):
+            logger.info(f"Loading config from local path: {config_path}")
+            with open(config_path, "r") as f:
+                n_mels = json.load(f)["num_mel_bins"]
+        else:
+            # Fall back to downloading from HF hub
+            logger.info(f"Loading config from Hugging Face hub: {TEST_WHISPER_VERSION}")
+            with open(
+                hf_hub_download(repo_id=TEST_WHISPER_VERSION, filename="config.json"), "r"
+            ) as f:
+                n_mels = json.load(f)["num_mel_bins"]
 
         logger.info(
             f"WhisperMelSpectrogram: n_mels={n_mels} for {TEST_WHISPER_VERSION}"

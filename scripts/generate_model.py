@@ -89,9 +89,7 @@ def cli():
     args.test_model_version = args.model_version
     args.palettizer_tests = args.generate_quantized_variants
     args.context_prefill_tests = args.generate_decoder_context_prefill_data
-    args.persistent_cache_dir = os.path.join(
-        args.output_dir, args.model_version.replace("/", "_")
-    )
+    args.persistent_cache_dir = args.output_dir
     if args.repo_path_suffix is not None:
         args.persistent_cache_dir += f"_{args.repo_path_suffix}"
 

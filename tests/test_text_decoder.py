@@ -54,15 +54,18 @@ def load_whisper_model(model_path: str, torch_dtype=None):
     Returns:
         The loaded Whisper model
     """
+    logger.info(f"Attempting to load model from: {model_path}")
     try:
         # First try loading as a local path
         if os.path.exists(model_path):
+            logger.info(f"Loading model from local path: {model_path}")
             return WhisperForConditionalGeneration.from_pretrained(
                 model_path,
                 local_files_only=True,
                 torch_dtype=torch_dtype
             )
         # If not a valid path, try loading from HF hub
+        logger.info(f"Loading model from Hugging Face hub: {model_path}")
         return WhisperForConditionalGeneration.from_pretrained(
             model_path,
             torch_dtype=torch_dtype
