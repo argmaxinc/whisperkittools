@@ -35,8 +35,9 @@ def cli():
     parser.add_argument(
         "--model-version",
         required=True,
-        help="Whisper model version string that matches Hugging Face model hub name, "
-             "e.g. openai/whisper-tiny.en",
+        help="Whisper model version string that can be either:\n"
+             "1. A Hugging Face model hub name (e.g. openai/whisper-tiny.en)\n"
+             "2. A local directory containing the model files"
     )
     parser.add_argument(
         "--generate-quantized-variants",
@@ -135,12 +136,16 @@ def upload_version(local_folder_path, model_version):
 
     # Dump required metadata before upload
     for filename in ["config.json", "generation_config.json"]:
-        with open(hf_hub_download(repo_id=model_version,
-                                  filename=filename), "r") as f:
+        if os.path.exists(model_version):  # Local path
+            config_path = os.path.join(model_version, filename)
+        else:  # HF hub path
+            config_path = hf_hub_download(repo_id=model_version, filename=filename)
+        
+        with open(config_path, "r") as f:
             model_file = json.load(f)
         with open(os.path.join(local_folder_path, filename), "w") as f:
             json.dump(model_file, f)
-        logger.info(f"Copied over {filename} from the original {model_version} repo")
+        logger.info(f"Copied over {filename} from the original model")
 
     # Get whisperkittools commit hash
     wkt_commit_hash = subprocess.run(
@@ -262,3 +267,35 @@ def get_dir_size(root_dir):
             if not os.path.islink(path):
                 size_in_mb += os.path.getsize(path)
     return size_in_mb / 1e6
+
+
+def load_whisper_model(model_path: str, torch_dtype=None):
+    """Load a Whisper model from either Hugging Face hub or local path
+    
+    Args:
+        model_path: Either a Hugging Face model ID or local directory path
+        torch_dtype: Optional torch dtype to load the model in
+    
+    Returns:
+        The loaded Whisper model
+    """
+    from transformers import WhisperForConditionalGeneration
+    
+    try:
+        # First try loading as a local path
+        if os.path.exists(model_path):
+            return WhisperForConditionalGeneration.from_pretrained(
+                model_path,
+                local_files_only=True,
+                torch_dtype=torch_dtype
+            )
+        # If not a valid path, try loading from HF hub
+        return WhisperForConditionalGeneration.from_pretrained(
+            model_path,
+            torch_dtype=torch_dtype
+        )
+    except Exception as e:
+        raise ValueError(
+            f"Could not load model from '{model_path}'. "
+            "Make sure it is either a valid local path or Hugging Face model ID."
+        ) from e
