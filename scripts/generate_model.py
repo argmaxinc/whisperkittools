@@ -265,35 +265,3 @@ def get_dir_size(root_dir):
             if not os.path.islink(path):
                 size_in_mb += os.path.getsize(path)
     return size_in_mb / 1e6
-
-
-def load_whisper_model(model_path: str, torch_dtype=None):
-    """Load a Whisper model from either Hugging Face hub or local path
-    
-    Args:
-        model_path: Either a Hugging Face model ID or local directory path
-        torch_dtype: Optional torch dtype to load the model in
-    
-    Returns:
-        The loaded Whisper model
-    """
-    from transformers import WhisperForConditionalGeneration
-    
-    try:
-        # First try loading as a local path
-        if os.path.exists(model_path):
-            return WhisperForConditionalGeneration.from_pretrained(
-                model_path,
-                local_files_only=True,
-                torch_dtype=torch_dtype
-            )
-        # If not a valid path, try loading from HF hub
-        return WhisperForConditionalGeneration.from_pretrained(
-            model_path,
-            torch_dtype=torch_dtype
-        )
-    except Exception as e:
-        raise ValueError(
-            f"Could not load model from '{model_path}'. "
-            "Make sure it is either a valid local path or Hugging Face model ID."
-        ) from e
