@@ -15,7 +15,6 @@ from argmaxtools import test_utils as argmaxtools_test_utils
 from argmaxtools.utils import get_fastest_device, get_logger
 from tqdm import tqdm
 from transformers import AutoTokenizer, WhisperForConditionalGeneration
-from transformers.models.whisper import modeling_whisper
 
 from whisperkit import test_utils, text_decoder
 from whisperkit.compress import palettize
@@ -46,11 +45,11 @@ TEST_TOKEN_TIMESTAMPS = True
 
 def load_whisper_model(model_path: str, torch_dtype=None):
     """Load a Whisper model from either Hugging Face hub or local path
-    
+
     Args:
         model_path: Either a Hugging Face model ID or local directory path
         torch_dtype: Optional torch dtype to load the model in
-    
+
     Returns:
         The loaded Whisper model
     """
