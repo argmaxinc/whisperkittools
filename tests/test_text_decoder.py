@@ -14,7 +14,7 @@ from argmaxtools import _sdpa, compress
 from argmaxtools import test_utils as argmaxtools_test_utils
 from argmaxtools.utils import get_fastest_device, get_logger
 from tqdm import tqdm
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, WhisperForConditionalGeneration
 from transformers.models.whisper import modeling_whisper
 
 from whisperkit import test_utils, text_decoder
@@ -44,6 +44,39 @@ TEST_DEC_KV_SEQ_LEN = None
 TEST_TOKEN_TIMESTAMPS = True
 
 
+def load_whisper_model(model_path: str, torch_dtype=None):
+    """Load a Whisper model from either Hugging Face hub or local path
+    
+    Args:
+        model_path: Either a Hugging Face model ID or local directory path
+        torch_dtype: Optional torch dtype to load the model in
+    
+    Returns:
+        The loaded Whisper model
+    """
+    logger.info(f"Attempting to load model from: {model_path}")
+    try:
+        # First try loading as a local path
+        if os.path.exists(model_path):
+            logger.info(f"Loading model from local path: {model_path}")
+            return WhisperForConditionalGeneration.from_pretrained(
+                model_path,
+                local_files_only=True,
+                torch_dtype=torch_dtype
+            )
+        # If not a valid path, try loading from HF hub
+        logger.info(f"Loading model from Hugging Face hub: {model_path}")
+        return WhisperForConditionalGeneration.from_pretrained(
+            model_path,
+            torch_dtype=torch_dtype
+        )
+    except Exception as e:
+        raise ValueError(
+            f"Could not load model from '{model_path}'. "
+            "Make sure it is either a valid local path or Hugging Face model ID."
+        ) from e
+
+
 class TestWhisperTextDecoder(argmaxtools_test_utils.CoreMLTestsMixin, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -55,12 +88,7 @@ class TestWhisperTextDecoder(argmaxtools_test_utils.CoreMLTestsMixin, unittest.T
             cls.test_output_names.pop(cls.test_output_names.index("alignment_heads_weights"))
 
         # Original model
-        orig_torch_model = (
-            modeling_whisper.WhisperForConditionalGeneration.from_pretrained(
-                TEST_WHISPER_VERSION,
-                torch_dtype=TEST_TORCH_DTYPE,
-            )
-        )
+        orig_torch_model = load_whisper_model(TEST_WHISPER_VERSION, TEST_TORCH_DTYPE)
         cls.orig_torch_model = (
             orig_torch_model.model.decoder.to(TEST_DEV).to(TEST_TORCH_DTYPE).eval()
         )

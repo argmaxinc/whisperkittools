@@ -35,8 +35,9 @@ def cli():
     parser.add_argument(
         "--model-version",
         required=True,
-        help="Whisper model version string that matches Hugging Face model hub name, "
-             "e.g. openai/whisper-tiny.en",
+        help="Whisper model version string that can be either:\n"
+             "1. A Hugging Face model hub name (e.g. openai/whisper-tiny.en)\n"
+             "2. A local directory containing the model files"
     )
     parser.add_argument(
         "--generate-quantized-variants",
@@ -88,9 +89,7 @@ def cli():
     args.test_model_version = args.model_version
     args.palettizer_tests = args.generate_quantized_variants
     args.context_prefill_tests = args.generate_decoder_context_prefill_data
-    args.persistent_cache_dir = os.path.join(
-        args.output_dir, args.model_version.replace("/", "_")
-    )
+    args.persistent_cache_dir = args.output_dir
     if args.repo_path_suffix is not None:
         args.persistent_cache_dir += f"_{args.repo_path_suffix}"
 
@@ -135,12 +134,16 @@ def upload_version(local_folder_path, model_version):
 
     # Dump required metadata before upload
     for filename in ["config.json", "generation_config.json"]:
-        with open(hf_hub_download(repo_id=model_version,
-                                  filename=filename), "r") as f:
+        if os.path.exists(model_version):  # Local path
+            config_path = os.path.join(model_version, filename)
+        else:  # HF hub path
+            config_path = hf_hub_download(repo_id=model_version, filename=filename)
+        
+        with open(config_path, "r") as f:
             model_file = json.load(f)
         with open(os.path.join(local_folder_path, filename), "w") as f:
             json.dump(model_file, f)
-        logger.info(f"Copied over {filename} from the original {model_version} repo")
+        logger.info(f"Copied over {filename} from the original model")
 
     # Get whisperkittools commit hash
     wkt_commit_hash = subprocess.run(
