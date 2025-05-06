@@ -34,7 +34,6 @@ TEST_MODEL_COMMIT_HASH = os.getenv("TEST_MODEL_COMMIT_HASH", None) or None
 TEST_MODEL_VERSION = os.getenv("TEST_MODEL_VERSION", None) or \
     "openai/whisper-tiny.en"
 TEST_UPLOAD_RESULTS = os.getenv("TEST_UPLOAD_RESULTS", None) or False
-TEST_QOI_REFERENCE = os.getenv("TEST_QOI_REFERENCE", None) or None  # TODO
 AVG_WER_SANITY_CHECK_THR = 0.5
 LANGUAGE_SUBSET = None
 
@@ -132,7 +131,7 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
 def main(args):
     global TEST_DATASET_NAME, TEST_PIPELINE, TEST_NUM_SAMPLES, TEST_CACHE_DIR, \
            TEST_MODEL_VERSION, TEST_CODE_COMMIT_HASH, TEST_MODEL_COMMIT_HASH, \
-           TEST_NUM_PROC, TEST_UPLOAD_RESULTS, TEST_QOI_REFERENCE, LANGUAGE_SUBSET
+           TEST_NUM_PROC, TEST_UPLOAD_RESULTS, LANGUAGE_SUBSET
     TEST_DATASET_NAME = args.dataset
     TEST_PIPELINE = args.pipeline
     TEST_NUM_SAMPLES = args.num_samples
