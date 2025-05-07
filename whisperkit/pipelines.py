@@ -10,7 +10,7 @@ import os
 import subprocess
 
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Any
 
 from argmaxtools.utils import _maybe_git_clone, get_logger
 from huggingface_hub import snapshot_download
@@ -73,12 +73,12 @@ class WhisperPipeline(ABC):
         pass
 
     @abstractmethod
-    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None) -> str:
+    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None) -> dict[str, Any]:
         """ Transcribe an audio file using the Whisper pipeline
         """
         pass
 
-    def __call__(self, audio_file_path: str, forced_language: Optional[str] = None) -> str:
+    def __call__(self, audio_file_path: str, forced_language: Optional[str] = None) -> dict[str, Any]:
         if not os.path.exists(audio_file_path):
             raise FileNotFoundError(audio_file_path)
 
@@ -158,7 +158,7 @@ class WhisperKit(WhisperPipeline):
         self.results_dir = os.path.join(self.models_dir, "results")
         os.makedirs(self.results_dir, exist_ok=True)
 
-    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None) -> str:
+    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None) -> dict[str, Any]:
         """ Transcribe an audio file using the WhisperKit CLI
         """
         cmd = " ".join([
@@ -196,7 +196,7 @@ class WhisperKit(WhisperPipeline):
 
         return results
 
-    def transcribe_folder(self, audio_folder_path: str, forced_language: Optional[str] = None) -> str:
+    def transcribe_folder(self, audio_folder_path: str, forced_language: Optional[str] = None) -> dict[str, Any]:
         """ Transcribe an audio folder using the WhisperKit CLI
         """
         cmd = " ".join([
@@ -296,7 +296,7 @@ class WhisperCpp(WhisperPipeline):
         self.ggml_model_path = os.path.join(
             self.models_dir, f"ggml-{self.model_version_str}.bin")
 
-    def preprocess_audio_file(self, audio_file_path: str) -> str:
+    def preprocess_audio_file(self, audio_file_path: str) -> Any:
         if os.path.splitext(audio_file_path)[-1] == "wav":
             import contextlib
             return contextlib.nullcontext(enter_result=os.path.dirname(audio_file_path))
@@ -327,7 +327,7 @@ class WhisperCpp(WhisperPipeline):
             logger.info(f"Resampled {audio_file_path} to temporary file ({temp_path})")
             return tempfile_context
 
-    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None) -> str:
+    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None) -> dict[str, Any]:
         """ Transcribe an audio file using the whisper.cpp CLI
         """
         with self.preprocess_audio_file(audio_file_path) as processed_file_dir:
@@ -385,7 +385,7 @@ class WhisperMLX(WhisperPipeline):
     def clone_models(self):
         self.models_dir = None
 
-    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None) -> str:
+    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None) -> dict[str, Any]:
         """ Transcribe an audio file using MLX
         """
         # Note 1: `condition_on_previous_text=True` causes repetitions
@@ -479,7 +479,7 @@ class WhisperOpenAIAPI:
 
         return audio_file_path
 
-    def __call__(self, audio_file_path: str) -> str:
+    def __call__(self, audio_file_path: str) -> dict[str, Any]:
         if not os.path.exists(audio_file_path):
             raise FileNotFoundError(audio_file_path)
 
