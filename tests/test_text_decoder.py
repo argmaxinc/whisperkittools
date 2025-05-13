@@ -511,6 +511,10 @@ if __name__ == "__main__":
         type=int,
         help="Overrides model's default sequence length",
     )
+    parser.add_argument("--allowed-nbits", type=list, default=[])
+    parser.add_argument("--outlier-decomp", action="store_true")
+    parser.add_argument("--palettization-group-size", type=int, default=None)
+    parser.add_argument("--force-recipe-nbits", action="store_true")
     args = parser.parse_args()
 
     main(args)
