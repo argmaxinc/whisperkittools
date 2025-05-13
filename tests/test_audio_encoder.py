@@ -25,6 +25,8 @@ TEST_CACHE_DIR = os.getenv("TEST_CACHE_DIR", None) or "/tmp"
 TEST_DEV = os.getenv("TEST_DEV", None) or get_fastest_device()
 TEST_TORCH_DTYPE = torch.float32
 TEST_PSNR_THR = 35
+argmaxtools_test_utils.TEST_PSNR_THR = TEST_PSNR_THR
+TEST_FORCE_RECIPE_NBITS = True
 
 argmaxtools_test_utils.TEST_MIN_SPEEDUP_VS_CPU = 0.95
 argmaxtools_test_utils.TEST_SKIP_SPEED_TESTS = True
@@ -176,12 +178,13 @@ class TestWhisperMelSpectrogram(
 
 
 argmaxtools_test_utils.TEST_DONT_PALETTIZE_TOP_K = 0
-argmaxtools_test_utils.TEST_ALLOWED_NBITS = [4, 6, 8]
+argmaxtools_test_utils.TEST_ALLOWED_NBITS = [4]
 compress.palettize.NUM_MIXED_BIT_RECIPES = 1
-compress.palettize.TEST_BATCH_SIZE = 16
+compress.palettize.TEST_BATCH_SIZE = 1
 compress.palettize.INVERTED_RESULT_THR = 0.25
-compress.palettize.SPARSE_OUTLIER_DECOMPOSITION = False
+compress.palettize.SPARSE_OUTLIER_DECOMPOSITION = True
 compress.sparse_outlier.OUTLIER_NUM_STD = 3.0
+compress.palettize.PALETTIZATION_GROUP_SIZE = None
 
 
 class TestWhisperAudioEncoderPalettizer(
@@ -216,7 +219,38 @@ class TestWhisperAudioEncoderPalettizer(
 
 
 def main(args):
-    global TEST_WHISPER_VERSION, TEST_CACHE_DIR
+    global TEST_WHISPER_VERSION, TEST_CACHE_DIR, TEST_KV_CACHE_OUTPUTS, CREATE_FAST_LOAD_ASSET
+
+    # Quantization variables
+    argmaxtools_test_utils.TEST_ALLOWED_NBITS = args.allowed_nbits
+    logger.info(f"Allowed nbits: {argmaxtools_test_utils.TEST_ALLOWED_NBITS}")
+    compress.palettize.SPARSE_OUTLIER_DECOMPOSITION = args.outlier_decomp
+    logger.info(f"Outlier decomposition: {compress.palettize.SPARSE_OUTLIER_DECOMPOSITION}")
+    compress.palettize.PALETTIZATION_GROUP_SIZE = args.palettization_group_size
+    logger.info(f"Palettization group size: {compress.palettize.PALETTIZATION_GROUP_SIZE}")
+    TEST_FORCE_RECIPE_NBITS = args.force_recipe_nbits
+    logger.info(f"Force recipe nbits: {TEST_FORCE_RECIPE_NBITS}")
+
+    if (
+        3 in argmaxtools_test_utils.TEST_ALLOWED_NBITS
+    ) and (
+        argmaxtools_test_utils.TEST_MIN_DEPLOYMENT_TARGET < ct.target.macOS15
+    ):
+        logger.info(
+            "3-bit palettization requires iOS18/macOS15 or later. "
+            "Setting minimum deployment target to macOS15 and iOS18"
+        )
+        argmaxtools_test_utils.TEST_MIN_DEPLOYMENT_TARGET = ct.target.macOS15
+    if (
+        compress.palettize.PALETTIZATION_GROUP_SIZE is not None
+    ) and (
+        argmaxtools_test_utils.TEST_MIN_DEPLOYMENT_TARGET < ct.target.macOS15
+    ):
+        logger.info(
+            "`per_grouped_channel` palettization requires iOS18/macOS15 or later. "
+            "Setting minimum deployment target to macOS15 and iOS18"
+        )
+        argmaxtools_test_utils.TEST_MIN_DEPLOYMENT_TARGET = ct.target.macOS15
 
     TEST_WHISPER_VERSION = args.test_model_version
     logger.info(f"Testing {TEST_WHISPER_VERSION}")
@@ -243,7 +277,11 @@ def main(args):
             )
 
         if args.palettizer_tests:
-            suite.addTest(TestWhisperAudioEncoderPalettizer("test_profile_response"))
+            if TEST_FORCE_RECIPE_NBITS:
+                logger.info(f"Forcing recipe nbits to {argmaxtools_test_utils.TEST_ALLOWED_NBITS}")
+                suite.addTest(TestWhisperAudioEncoderPalettizer("test_create_recipe_with_forced_nbits"))
+            else:
+                suite.addTest(TestWhisperAudioEncoderPalettizer("test_profile_response"))
             suite.addTest(
                 TestWhisperAudioEncoderPalettizer(
                     "test_palettized_torch2coreml_conversion_and_correctness"
