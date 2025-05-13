@@ -220,7 +220,7 @@ class TestWhisperAudioEncoderPalettizer(
 
 
 def main(args):
-    global TEST_WHISPER_VERSION, TEST_CACHE_DIR, TEST_KV_CACHE_OUTPUTS, CREATE_FAST_LOAD_ASSET
+    global TEST_WHISPER_VERSION, TEST_CACHE_DIR
 
     # Quantization variables
     argmaxtools_test_utils.TEST_ALLOWED_NBITS = args.allowed_nbits
