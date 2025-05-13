@@ -7,6 +7,7 @@ import json
 import os
 import unittest
 
+import coremltools as ct
 import torch
 from argmaxtools import _sdpa, compress
 from argmaxtools import test_utils as argmaxtools_test_utils
