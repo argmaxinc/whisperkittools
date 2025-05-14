@@ -17,6 +17,7 @@ setup(
         "argmaxtools",
         "transformers",
         "huggingface-hub",
+        "torch==2.6.0",
     ],
     extras_require={
         "pipelines": [

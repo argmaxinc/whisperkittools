@@ -106,7 +106,7 @@ class WhisperKit(WhisperPipeline):
     _word_timestamps: bool = False
 
     # Different compute unit configurations may be faster on different devices
-    _text_decoder_compute_units = "cpuAndNeuralEngine"
+    _text_decoder_compute_units = "cpuAndGPU"
     _audio_encoder_compute_units = "cpuAndNeuralEngine"
 
     def clone_repo(self):

@@ -29,9 +29,8 @@ TEST_WHISPER_VERSION = (
 TEST_DEV = os.getenv("TEST_DEV", None) or get_fastest_device()
 TEST_TORCH_DTYPE = torch.float32
 TEST_PSNR_THR = 35
+argmaxtools_test_utils.TEST_PSNR_THR = TEST_PSNR_THR
 TEST_CACHE_DIR = os.getenv("TEST_CACHE_DIR", None) or "/tmp"
-
-argmaxtools_test_utils.TEST_SKIP_SPEED_TESTS = True
 
 # WhisperDecoderContextPrefill constants
 TEST_PREFILL_CONSISTENCY_PSNR_THR = 20
@@ -41,6 +40,8 @@ TEST_OUTPUT_NAMES = [
 TEST_CONTEXT_PREFILL_OUTPUT_NAMES = ["key_cache_prefill", "value_cache_prefill"]
 TEST_DEC_KV_SEQ_LEN = None
 TEST_TOKEN_TIMESTAMPS = True
+TEST_FORCE_RECIPE_NBITS = True
+argmaxtools_test_utils.TEST_SKIP_SPEED_TESTS = True
 
 
 def load_whisper_model(model_path: str, torch_dtype=None):
@@ -356,12 +357,13 @@ class TestWhisperTextDecoder(argmaxtools_test_utils.CoreMLTestsMixin, unittest.T
 
 
 argmaxtools_test_utils.TEST_DONT_PALETTIZE_TOP_K = 0
-argmaxtools_test_utils.TEST_ALLOWED_NBITS = [4, 6, 8]
+argmaxtools_test_utils.TEST_ALLOWED_NBITS = [4]
 compress.palettize.NUM_MIXED_BIT_RECIPES = 1
-compress.palettize.TEST_BATCH_SIZE = 16
+compress.palettize.TEST_BATCH_SIZE = 1
 compress.palettize.INVERTED_RESULT_THR = 0.25
-compress.palettize.SPARSE_OUTLIER_DECOMPOSITION = False
+compress.palettize.SPARSE_OUTLIER_DECOMPOSITION = True
 compress.sparse_outlier.OUTLIER_NUM_STD = 3.0
+compress.palettize.PALETTIZATION_GROUP_SIZE = None
 
 
 class TestWhisperTextDecoderPalettizer(
@@ -412,7 +414,36 @@ def main(args):
 
     TEST_WHISPER_VERSION = args.test_model_version
     TEST_TOKEN_TIMESTAMPS = not args.disable_token_timestamps
+    # Quantization variables
+    argmaxtools_test_utils.TEST_ALLOWED_NBITS = args.allowed_nbits
+    logger.info(f"Allowed nbits: {argmaxtools_test_utils.TEST_ALLOWED_NBITS}")
+    compress.palettize.SPARSE_OUTLIER_DECOMPOSITION = args.outlier_decomp
+    logger.info(f"Outlier decomposition: {compress.palettize.SPARSE_OUTLIER_DECOMPOSITION}")
+    compress.palettize.PALETTIZATION_GROUP_SIZE = args.palettization_group_size
+    logger.info(f"Palettization group size: {compress.palettize.PALETTIZATION_GROUP_SIZE}")
+    TEST_FORCE_RECIPE_NBITS = args.force_recipe_nbits
+    logger.info(f"Force recipe nbits: {TEST_FORCE_RECIPE_NBITS}")
 
+    if (
+        3 in argmaxtools_test_utils.TEST_ALLOWED_NBITS
+    ) and (
+        argmaxtools_test_utils.TEST_MIN_DEPLOYMENT_TARGET < ct.target.macOS15
+    ):
+        logger.info(
+            "3-bit palettization requires iOS18/macOS15 or later. "
+            "Setting minimum deployment target to macOS15 and iOS18"
+        )
+        argmaxtools_test_utils.TEST_MIN_DEPLOYMENT_TARGET = ct.target.macOS15
+    if (
+        compress.palettize.PALETTIZATION_GROUP_SIZE is not None
+    ) and (
+        argmaxtools_test_utils.TEST_MIN_DEPLOYMENT_TARGET < ct.target.macOS15
+    ):
+        logger.info(
+            "`per_grouped_channel` palettization requires iOS18/macOS15 or later. "
+            "Setting minimum deployment target to macOS15 and iOS18"
+        )
+        argmaxtools_test_utils.TEST_MIN_DEPLOYMENT_TARGET = ct.target.macOS15
     logger.info(f"Testing {TEST_WHISPER_VERSION}")
 
     text_decoder.SDPA_IMPL = getattr(_sdpa, args.sdpa_implementation)
@@ -440,7 +471,11 @@ def main(args):
             suite.addTest(TestWhisperTextDecoder("test_torch_context_prefill"))
 
         if args.palettizer_tests:
-            suite.addTest(TestWhisperTextDecoderPalettizer("test_profile_response"))
+            if TEST_FORCE_RECIPE_NBITS:
+                logger.info(f"Forcing recipe nbits to {argmaxtools_test_utils.TEST_ALLOWED_NBITS}")
+                suite.addTest(TestWhisperTextDecoderPalettizer("test_create_recipe_with_forced_nbits"))
+            else:
+                suite.addTest(TestWhisperTextDecoderPalettizer("test_profile_response"))
             suite.addTest(
                 TestWhisperTextDecoderPalettizer(
                     "test_palettized_torch2coreml_conversion_and_correctness"
@@ -476,6 +511,10 @@ if __name__ == "__main__":
         type=int,
         help="Overrides model's default sequence length",
     )
+    parser.add_argument("--allowed-nbits", type=list, default=[])
+    parser.add_argument("--outlier-decomp", action="store_true")
+    parser.add_argument("--palettization-group-size", type=int, default=None)
+    parser.add_argument("--force-recipe-nbits", action="store_true")
     args = parser.parse_args()
 
     main(args)

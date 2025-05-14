@@ -83,13 +83,44 @@ def cli():
         action="store_true",
         help=f"If specified, uplaods the generated models to hf.co/{MODEL_REPO_ID}"
     )
+    parser.add_argument(
+        "--allowed-nbits",
+        action="append",
+        type=int,
+        help="If specified, generates quantized variants for the given number of bits"
+    )
+    parser.add_argument(
+        "--outlier-decomp",
+        action="store_true",
+        help="If specified, enables outlier decomposition for the quantized variants"
+    )
+    parser.add_argument(
+        "--palettization-group-size",
+        type=int,
+        default=None,
+        choices=(4, 16, 32, 64, 128, 256),
+        help="Number of channels in a group for palettization. If not specified, "
+             "granularity will be `per_tensor`"
+    )
+    parser.add_argument(
+        "--force-recipe-nbits",
+        action="store_true",
+        help="If specified, forces the recipe to use the given `--allowed-nbits`"
+    )
 
     # Alias the CLI args to match the test scripts
     args = parser.parse_args()
+    if args.generate_quantized_variants:
+        assert args.allowed_nbits is not None and len(args.allowed_nbits) > 0, \
+            "Allowed nbits must be specified for quantized variants"
+    if args.allowed_nbits is None:
+        args.allowed_nbits = []
     args.test_model_version = args.model_version
     args.palettizer_tests = args.generate_quantized_variants
     args.context_prefill_tests = args.generate_decoder_context_prefill_data
-    args.persistent_cache_dir = args.output_dir
+    args.persistent_cache_dir = os.path.join(
+        args.output_dir, args.model_version.replace("/", "_")
+    )
     if args.repo_path_suffix is not None:
         args.persistent_cache_dir += f"_{args.repo_path_suffix}"
 
