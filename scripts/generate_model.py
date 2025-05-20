@@ -296,3 +296,7 @@ def get_dir_size(root_dir):
             if not os.path.islink(path):
                 size_in_mb += os.path.getsize(path)
     return size_in_mb / 1e6
+
+
+if __name__ == "__main__":
+    cli()

@@ -7,10 +7,14 @@ from collections import OrderedDict
 from typing import List
 
 import coremltools as ct
+import os
 import torch
 from argmaxtools.test_utils import (AppleSiliconContextMixin,
                                     InferenceContextSpec)
+from argmaxtools.utils import get_logger
 from transformers.models.whisper import modeling_whisper
+
+logger = get_logger(__name__)
 
 
 class BenchmarkContext(AppleSiliconContextMixin, InferenceContextSpec):
@@ -227,3 +231,36 @@ def _prepare_test_inputs_for_encoder(embed_dim,
     huggingface_transformers_inputs = dict(input_features=melspectrogram_features.squeeze(2))
 
     return argmax_inputs, huggingface_transformers_inputs
+
+
+def load_whisper_model(model_path: str, torch_dtype=None):
+    """Load a Whisper model from either Hugging Face hub or local path
+
+    Args:
+        model_path: Either a Hugging Face model ID or local directory path
+        torch_dtype: Optional torch dtype to load the model in
+
+    Returns:
+        The loaded Whisper model
+    """
+    logger.info(f"Attempting to load model from: {model_path}")
+    try:
+        # First try loading as a local path
+        if os.path.exists(model_path):
+            logger.info(f"Loading model from local path: {model_path}")
+            return modeling_whisperWhisperForConditionalGeneration.from_pretrained(
+                model_path,
+                local_files_only=True,
+                torch_dtype=torch_dtype
+            )
+        # If not a valid path, try loading from HF hub
+        logger.info(f"Loading model from Hugging Face hub: {model_path}")
+        return modeling_whisper.WhisperForConditionalGeneration.from_pretrained(
+            model_path,
+            torch_dtype=torch_dtype
+        )
+    except Exception as e:
+        raise ValueError(
+            f"Could not load model from '{model_path}'. "
+            "Make sure it is either a valid local path or Hugging Face model ID."
+        ) from e
