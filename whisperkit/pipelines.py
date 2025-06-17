@@ -402,11 +402,6 @@ class AppleSpeechAnalyzer(WhisperPipeline):
     """ Pipeline to clone, build and run the CLI from
     https://github.com/argmaxinc/apple-speechanalyzer-cli-example
     """
-    _word_timestamps: bool = False
-
-    # Different compute unit configurations may be faster on different devices
-    _text_decoder_compute_units = "cpuAndGPU"
-    _audio_encoder_compute_units = "cpuAndNeuralEngine"
 
     def clone_repo(self):
         repo_name = "apple-speechanalyzer-cli-example"
@@ -470,9 +465,6 @@ class AppleSpeechAnalyzer(WhisperPipeline):
         self.cli_path = os.path.join(build_dir, self.product_name)
 
     def clone_models(self):
-        """ Download WhisperKit model files from Hugging Face Hub
-        (only the files needed for `self.whisper_version`)
-        """
         self.models_dir = os.path.join(self.repo_dir, "models")  # dummy
         self.results_dir = os.path.join(self.repo_dir, "results")
         os.makedirs(self.results_dir, exist_ok=True)
