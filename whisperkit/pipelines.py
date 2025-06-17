@@ -398,6 +398,115 @@ class WhisperMLX(WhisperPipeline):
         )
 
 
+class AppleSpeechAnalyzer(WhisperPipeline):
+    """ Pipeline to clone, build and run the CLI from
+    https://github.com/argmaxinc/apple-speechanalyzer-cli-example
+    """
+
+    def clone_repo(self):
+        repo_name = "apple-speechanalyzer-cli-example"
+        out_path = os.path.join(self.out_dir, repo_name)
+
+        if os.path.exists(out_path):
+            is_inside_worktree = subprocess.check_output(
+                "git rev-parse --is-inside-work-tree",
+                cwd=out_path, shell=True, text=True
+            ).strip() == "true"
+
+            assert is_inside_worktree, f"{out_path} is not a git repo"
+            logger.info(f"Reusing repo at {out_path}")
+        else:
+            # Clone repo if not cached already
+            os.makedirs(self.out_dir, exist_ok=True)
+            if subprocess.check_call(
+                "git clone git@github.com:argmaxinc/apple-speechanalyzer-cli-example.git",
+                cwd=self.out_dir,
+                shell=True
+            ):
+                raise RuntimeError(f"Failed to clone {repo_name} repo")
+            logger.info(f"Successfuly cloned {repo_name} repo")
+
+        if self.code_commit_hash is not None:
+            # Checkout commit hash if specified
+            commit_exists = subprocess.check_output(
+                f"git fetch && git cat-file -t {self.code_commit_hash}",
+                cwd=out_path, shell=True, text=True
+            ).strip() == "commit"
+
+            if not commit_exists:
+                raise ValueError(f"{self.code_commit_hash} does not exist in {repo_name}")
+
+            if subprocess.check_call(
+                f"git reset --hard {self.code_commit_hash}",
+                cwd=out_path,
+                shell=True
+            ):
+                raise RuntimeError(f"Failed to checkout {self.code_commit_hash} in {repo_name}")
+
+            logger.info(f"Successfuly checked out {self.code_commit_hash} in {repo_name}")
+        else:
+            self.code_commit_hash = subprocess.check_output(
+                ['git', 'rev-parse', 'HEAD'], cwd=out_path, text=True).strip()
+            logger.info(f"Using unmodified HEAD commit hash: {self.code_commit_hash}")
+
+        self.repo_dir = out_path
+        self.code_commit_hash = self.code_commit_hash
+
+    def build_cli(self):
+        self.product_name = "apple-speechanalyzer-cli"
+        if subprocess.check_call(f"swift build -c release --product {self.product_name}",
+                                 cwd=self.repo_dir, shell=True):
+            raise subprocess.CalledProcessError(f"Failed to build {self.product_name}")
+        logger.info(f"Successfuly built {self.product_name} CLI")
+
+        build_dir = subprocess.run(
+            f"swift build -c release --product {self.product_name} --show-bin-path",
+            cwd=self.repo_dir, stdout=subprocess.PIPE, shell=True, text=True).stdout.strip()
+        self.cli_path = os.path.join(build_dir, self.product_name)
+
+    def clone_models(self):
+        self.models_dir = os.path.join(self.repo_dir, "models")  # dummy
+        self.results_dir = os.path.join(self.repo_dir, "results")
+        os.makedirs(self.results_dir, exist_ok=True)
+
+    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None) -> str:
+        """ Transcribe an audio file using the Apple Speech Analyzer CLI
+        """
+        cmd = " ".join([
+            self.cli_path,
+            "--input-audio-path", audio_file_path,
+            "--output-txt-path", os.path.join(
+                self.results_dir,
+                audio_file_path.rsplit("/")[-1].rsplit(".")[0] + ".txt"
+            ),
+        ])
+
+        logger.debug(f"Executing command: {cmd}")
+        if subprocess.check_call(cmd, stdout=subprocess.PIPE, shell=True, text=True) != 0:
+            raise subprocess.CalledProcessError(f"Failed to transcribe {audio_file_path}")
+
+        result_path = os.path.join(
+            self.results_dir,
+            audio_file_path.rsplit("/")[-1].rsplit(".")[0] + ".txt"
+        )
+
+        if not os.path.exists(result_path):
+            results = None
+            logger.warning(f"Result not found at {result_path}")
+
+        with open(result_path, "r") as f:
+            # Read the full txt file and return it as a string
+            results = f.read().strip()
+
+        if results is None or len(results) == 0:
+            logger.warning(f"No text found in results: {results}")
+            results = {"text": "", "failed": True}
+        else:
+            results = {"text": results}
+
+        return results
+
+
 class WhisperOpenAIAPI:
     """ Pipeline to use the OpenAI API for transcription
 
@@ -527,6 +636,8 @@ def get_pipeline_cls(cls_name):
         return WhisperCpp
     elif cls_name == "WhisperMLX":
         return WhisperMLX
+    elif cls_name == "AppleSpeechAnalyzer":
+        return AppleSpeechAnalyzer
     elif cls_name == "WhisperOpenAIAPI":
         return WhisperOpenAIAPI
     else:
