@@ -71,7 +71,7 @@ def cli():
     parser.add_argument(
         "--pipeline",
         type=str,
-        choices=("WhisperKit", "whisper.cpp", "WhisperMLX", "WhisperOpenAIAPI"),
+        choices=("WhisperKit", "whisper.cpp", "WhisperMLX", "AppleSpeechAnalyzer", "WhisperOpenAIAPI"),
         required=True
     )
     parser.add_argument(
