@@ -78,6 +78,7 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
                 "num_samples": TEST_NUM_SAMPLES,
                 "num_proc": TEST_NUM_PROC,
                 "pipeline": TEST_PIPELINE,
+                "precision": cls.pipeline.precision.value,
                 "dataset_name": TEST_DATASET_NAME,
                 "model_version": TEST_MODEL_VERSION,
                 "whisperkittools_commit_hash": wkt_commit_hash,
@@ -111,7 +112,7 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
                 ).strftime("%Y-%m-%d_%H:%M:%S_GMT%z") + ".json"
 
             api = HfApi()
-            logger.info(f"Uploading results to hf.co/datasets/{EVALS_REPO_ID}")
+            logger.info(f"Uploading results to hf.co/datasets/{EVALS_REPO_ID}/tree/main/{results_dir}")
             api.upload_file(
                 path_or_fileobj=out_path,
                 path_in_repo=os.path.join(results_dir, results_fname),
@@ -146,6 +147,9 @@ def main(args):
     # Force language option
     whisperkit.evaluate.evaluate.FORCE_LANGUAGE = args.force_language
 
+    # Prompt option
+    whisperkit.evaluate.evaluate.PROMPT = args.prompt
+
     with argmaxtools_test_utils._get_test_cache_dir(
         args.persistent_cache_dir
     ) as TEST_CACHE_DIR:
@@ -175,6 +179,8 @@ if __name__ == "__main__":
         choices=("WhisperKit", "whisper.cpp", "WhisperMLX", "WhisperOpenAIAPI"),
         required=True
     )
+    parser.add_argument("--force-language", action="store_true")
+    parser.add_argument("--prompt", type=str, default=None)
     parser.add_argument("--num-samples", type=int, default=-1)
     parser.add_argument("--persistent-cache-dir", type=str, default="./external")
     parser.add_argument("--model-version", type=str, default="openai/whisper-tiny")
@@ -182,8 +188,6 @@ if __name__ == "__main__":
     parser.add_argument("--model-commit-hash", type=str, default=None)
     parser.add_argument("--num-proc", type=int, default=1)
     parser.add_argument("--upload-results", action="store_true")
-    parser.add_argument("--language-subset", type=str, default=None)
-    parser.add_argument("--force-language", action="store_true")
     args = parser.parse_args()
 
     main(args)

@@ -9,6 +9,7 @@ import os
 from argmaxtools.utils import get_logger
 from tests import test_evaluate
 from whisperkit._constants import EVAL_DATASETS, EVALS_REPO_ID, MODEL_REPO_ID
+from whisperkit import _constants
 
 logger = get_logger(__name__)
 
@@ -34,7 +35,6 @@ def cli():
         default=[],
         action="append",
         required=True,
-        choices=EVAL_DATASETS,
         help="Dataset to use for evaluation, can be specified multiple times. "
              "Use `*-debug` datasets for quick local testing."
     )
@@ -71,8 +71,21 @@ def cli():
     parser.add_argument(
         "--pipeline",
         type=str,
-        choices=("WhisperKit", "whisper.cpp", "WhisperMLX", "AppleSpeechAnalyzer", "WhisperOpenAIAPI"),
+        choices=("WhisperKit", "WhisperKitPro",
+                 "whisper.cpp", "WhisperCpp",
+                 "WhisperMLX", "mlx-whisper",
+                 "WhisperHF", "huggingface-whisper",
+                 "WhisperHF_MPS", "huggingface-whisper-mps",
+                 "AppleSpeechAnalyzer",
+                 "WhisperOpenAI",
+                 "WhisperOpenAIAPI"),
         required=True
+    )
+    parser.add_argument(
+        "--language-subset",
+        type=str,
+        default=None,
+        help="Language subset to evaluate, e.g. 'en' for English"
     )
     parser.add_argument(
         "--force-language",
@@ -80,14 +93,26 @@ def cli():
         help="If specified, forces the language in each data sample (if available)"
     )
     parser.add_argument(
-        "--language-subset",
+        "--prompt",
         type=str,
         default=None,
-        help="If specified, filters the dataset for the given language"
+        help="Optional text to provide as a prompt for the first window. (default: None)"
     )
 
     # Alias the CLI args to match the test scripts
     args = parser.parse_args()
+
+    for dataset in args.evaluation_dataset:
+        if dataset not in EVAL_DATASETS:
+            # Make sure the dataset is available locally
+            if not os.path.exists(dataset):
+                logger.error(f"Dataset {dataset} not found locally")
+                raise ValueError(f"Dataset {dataset} not found locally")
+            _constants.IS_LOCAL_DATASET = True
+
+    if os.path.exists(args.model_version):
+        logger.info(f"Using local model: {args.model_version}")
+        _constants.IS_LOCAL_MODEL = True
 
     args.persistent_cache_dir = os.path.join(args.output_dir, args.model_version.replace("/", "_"))
     args.test_model_version = args.model_version

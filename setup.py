@@ -36,6 +36,7 @@ setup(
             "transliterate",
             "openai",
             "mlx-whisper",
+            "openai-whisper",
         ],
         "android": [
             "qai-hub",
