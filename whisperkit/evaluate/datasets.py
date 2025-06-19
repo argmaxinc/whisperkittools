@@ -6,11 +6,12 @@
 import json
 import os
 from pathlib import Path
-
+import shutil
 from argmaxtools.utils import get_logger
 from huggingface_hub import snapshot_download
 
 from whisperkit._constants import DATASET_REPO_OWNER, EVAL_DATASETS, SUPPORTED_LANGUAGES
+from whisperkit import _constants
 from whisperkit.evaluate.normalize_en import EnglishTextNormalizer
 
 logger = get_logger(__name__)
@@ -19,8 +20,8 @@ text_normalizer = EnglishTextNormalizer()
 
 
 def get_dataset(dataset_name, cache_dir, max_num_samples=-1, language_subset=None):
-    if dataset_name not in EVAL_DATASETS:
-        raise ValueError(f"Dataset not yet registered: {dataset_name}")
+    if dataset_name not in EVAL_DATASETS and not _constants.IS_LOCAL_DATASET:
+        raise ValueError(f"Dataset not yet registered: {dataset_name} and not locally available")
 
     if language_subset is not None:
         assert language_subset in SUPPORTED_LANGUAGES, f"Unsupported language: {language_subset}"
@@ -37,13 +38,20 @@ def get_dataset(dataset_name, cache_dir, max_num_samples=-1, language_subset=Non
     os.makedirs(Path(cache_dir).parent, exist_ok=True)
 
     if not os.path.exists(cache_dir):
-        snapshot_download(
-            repo_id=f"{DATASET_REPO_OWNER}/{dataset_name}",
-            repo_type="dataset",
-            allow_patterns="*",
-            local_dir=cache_dir,
-            local_dir_use_symlinks=True
-        )
+        if _constants.IS_LOCAL_DATASET:
+            logger.info(f"Using local dataset: {dataset_name}")
+            # Fetch all the files in the dataset directory and copy them to the cache_dir
+            os.makedirs(cache_dir, exist_ok=True)
+            for file in os.listdir(dataset_name):
+                shutil.copy(os.path.join(dataset_name, file), os.path.join(cache_dir, file))
+        else:
+            snapshot_download(
+                repo_id=f"{DATASET_REPO_OWNER}/{dataset_name}",
+                repo_type="dataset",
+                allow_patterns="*",
+                local_dir=cache_dir,
+                local_dir_use_symlinks=True
+            )
 
         # Unzip if necessary
         zip_files = [f for f in os.listdir(cache_dir) if f.endswith('.zip')]
@@ -122,7 +130,7 @@ def get_dataset(dataset_name, cache_dir, max_num_samples=-1, language_subset=Non
 
 
 def _get_audio_paths(source_dir):
-    AUDIO_EXTENSIONS = [".wav", ".flac", ".mp3"]
+    AUDIO_EXTENSIONS = [".wav", ".flac", ".mp3", ".m4a"]
     def filter_audio_ext(f): return os.path.splitext(f)[1] in AUDIO_EXTENSIONS
 
     audio_files = []

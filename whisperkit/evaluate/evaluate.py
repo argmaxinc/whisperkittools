@@ -6,6 +6,7 @@ import time
 from functools import partial
 from multiprocessing import Pool
 from typing import Union, Optional
+from difflib import Differ
 
 import evaluate
 import tqdm
@@ -50,6 +51,9 @@ wer_metric = evaluate.load("argmaxinc/detailed-wer")
 
 # Force the pipeline to use the language in the dataset (increases the number of fallbacks)
 FORCE_LANGUAGE = False
+
+# Prompt to use for the pipeline
+PROMPT = None
 
 # Unsupported languages except for large-v3
 UNSUPPORTED_LANGUAGES = ["yue"]
@@ -143,7 +147,7 @@ def evaluate(whisper_pipeline: Union[pipelines.WhisperPipeline, pipelines.Whispe
         else:
             results = []
             eval_sample = partial(evaluate_sample, whisper_pipeline=whisper_pipeline)
-            for sample in dataset:
+            for sample in tqdm.tqdm(dataset):
                 results.append(eval_sample(sample))
 
     total_elapsed = time.time() - begin
@@ -163,6 +167,8 @@ def evaluate(whisper_pipeline: Union[pipelines.WhisperPipeline, pipelines.Whispe
 
     sample_average_rtf = tot_prediction_duration / tot_audio_duration
     global_rtf = total_elapsed / tot_audio_duration
+
+    speed_factor = 1 / sample_average_rtf  # RTFx = (1/RTF) is the speed factor
 
     # Fallback bookkeeping
     num_fallbacks = list(filter(
@@ -192,10 +198,12 @@ def evaluate(whisper_pipeline: Union[pipelines.WhisperPipeline, pipelines.Whispe
     =======================================================
 
     Pipeline:\t{whisper_pipeline.__class__.__name__}
+    Precision:\t{whisper_pipeline.precision.value}
     Dataset:\t{dataset_name} {'(num_samples=' + str(num_samples) + ')' if num_samples > 1 else ''}
     Model:\t{whisper_pipeline.whisper_version}
+    Prompt:\t{PROMPT}
     -------------------------------------------------------
-          WER = Substitution + Deletion + Insertion
+           WER = Substitution + Deletion + Insertion
     WER:\t\t{avg_wer["wer"]}
     Substitutions:\t{avg_wer["substitution_rate"]}
     Deletions:\t\t{avg_wer["deletion_rate"]}
@@ -203,6 +211,7 @@ def evaluate(whisper_pipeline: Union[pipelines.WhisperPipeline, pipelines.Whispe
     -------------------------------------------------------
     RTF (per-clip average):\t{sample_average_rtf:.3g}
     RTF (global average):\t{global_rtf:.3g}
+    Speed factor (RTFx):\t{speed_factor:.3g}
     -------------------------------------------------------
     Average audio duration:\t{tot_audio_duration/len(results):.3g}
     Average prediction time:\t{tot_prediction_duration/len(results):.3g}
@@ -223,7 +232,7 @@ def evaluate_sample(sample, whisper_pipeline):
     forced_language = forced_language if FORCE_LANGUAGE else None
 
     start = time.time()
-    prediction = whisper_pipeline(audio_file_path, forced_language=forced_language)
+    prediction = whisper_pipeline(audio_file_path, forced_language=forced_language, prompt=PROMPT)
     assert "text" in prediction, list(prediction)
 
     if isinstance(whisper_pipeline, pipelines.WhisperKit):
@@ -248,6 +257,14 @@ def evaluate_sample(sample, whisper_pipeline):
         detailed=True  # Return detailed results
     )
 
+    # round to 3 decimal places
+    wer_result = {k: round(v, 3) for k, v in wer_result.items()}
+
+    # get text diffs
+    text_diffs = get_text_diffs(sample["norm_text"], normalized_predicted_text)
+    # filter out Nones in diffs
+    text_diffs = [diff for diff in text_diffs if diff[1] is not None]
+
     return dict(
         audio_duration=audio_duration,
         reference=sample["norm_text"],
@@ -256,6 +273,7 @@ def evaluate_sample(sample, whisper_pipeline):
         file=audio_file_path .split('/')[-1],
         **wer_result,
         num_fallbacks=num_fallbacks,
+        diffs=text_diffs,
     )
 
 
@@ -350,3 +368,25 @@ def evaluate_folder(folder, whisper_pipeline: pipelines.WhisperKit):
     )
 
     return results
+
+
+def get_text_diffs(reference, prediction):
+    d = Differ()
+    reference_words = reference.split()
+    prediction_words = prediction.split()
+
+    diffs = []
+    for token in d.compare(reference_words, prediction_words):
+        if token.startswith('?'):
+            continue
+
+        status = token[0]
+        word = token[2:].strip()
+
+        if word:
+            if status == ' ':
+                diffs.append((word, None))
+            else:
+                diffs.append((word, status))
+
+    return diffs

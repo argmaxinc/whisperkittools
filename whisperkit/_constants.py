@@ -7,6 +7,7 @@ import os
 WHISPERKIT_REPO_OWNER = "argmaxinc"
 WHISPERKIT_REPO_NAME = "WhisperKit"
 COMPRESSION_REPO_ID = "argmaxinc/compression_artifacts"
+_DEFAULT_MODEL_REPO_ID = "argmaxinc/whisperkit-coreml"
 MODEL_REPO_ID = os.getenv("MODEL_REPO_ID", None) or "argmaxinc/whisperkit-coreml"
 EVALS_REPO_ID = os.getenv("EVALS_REPO_ID", None) or "argmaxinc/whisperkit-evals"
 
@@ -19,6 +20,9 @@ EVAL_DATASETS = [
     "common_voice_17_0-debug-zip",
     "common_voice_17_0-argmax_subset-400"
 ]
+
+IS_LOCAL_DATASET = False
+IS_LOCAL_MODEL = False
 CUSTOM_EVAL_DATASET = os.getenv("EVAL_DATASET", None)
 if CUSTOM_EVAL_DATASET is not None:
     EVAL_DATASETS.append(CUSTOM_EVAL_DATASET)
