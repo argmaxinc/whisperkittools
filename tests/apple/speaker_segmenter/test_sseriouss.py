@@ -45,7 +45,7 @@ argmaxtools_test_utils.TEST_MIN_SPEEDUP_VS_CPU = -1
 argmaxtools_test_utils.TEST_SKIP_SPEED_TESTS = True
 argmaxtools_test_utils.TEST_COMPUTE_UNIT = ct.ComputeUnit.CPU_AND_NE
 argmaxtools_test_utils.TEST_MIN_DEPLOYMENT_TARGET = ct.target.macOS14
-argmaxtools_test_utils.TEST_COMPILE_COREML = False
+argmaxtools_test_utils.TEST_COMPILE_COREML = True
 argmaxtools_test_utils.TEST_DEFAULT_NBITS = 8
 
 
