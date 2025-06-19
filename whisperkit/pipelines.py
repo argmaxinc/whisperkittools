@@ -85,12 +85,22 @@ class WhisperPipeline(ABC):
         pass
 
     @abstractmethod
-    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None, prompt: Optional[str] = None):
+    def transcribe(
+        self,
+        audio_file_path: str,
+        forced_language: Optional[str] = None,
+        prompt: Optional[str] = None
+    ):
         """ Transcribe an audio file using the Whisper pipeline
         """
         pass
 
-    def __call__(self, audio_file_path: str, forced_language: Optional[str] = None, prompt: Optional[str] = None) -> str:
+    def __call__(
+        self,
+        audio_file_path: str,
+        forced_language: Optional[str] = None,
+        prompt: Optional[str] = None
+    ) -> str:
         if not os.path.exists(audio_file_path):
             raise FileNotFoundError(audio_file_path)
 
@@ -198,7 +208,12 @@ class WhisperKit(WhisperPipeline):
         self.results_dir = os.path.join(self.models_dir, "results")
         os.makedirs(self.results_dir, exist_ok=True)
 
-    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None, prompt: Optional[str] = None) -> str:
+    def transcribe(
+        self,
+        audio_file_path: str,
+        forced_language: Optional[str] = None,
+        prompt: Optional[str] = None
+    ) -> str:
         """ Transcribe an audio file using the WhisperKit CLI
         """
         if prompt is not None:
@@ -389,7 +404,12 @@ class WhisperCpp(WhisperPipeline):
             logger.info(f"Resampled {audio_file_path} to temporary file ({temp_path})")
             return tempfile_context
 
-    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None, prompt: Optional[str] = None) -> str:
+    def transcribe(
+        self,
+        audio_file_path: str,
+        forced_language: Optional[str] = None,
+        prompt: Optional[str] = None
+    ) -> str:
         """ Transcribe an audio file using the whisper.cpp CLI
         """
         if prompt is not None:
@@ -450,7 +470,12 @@ class WhisperMLX(WhisperPipeline):
     def clone_models(self):
         self.models_dir = None
 
-    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None, prompt: Optional[str] = None) -> str:
+    def transcribe(
+        self,
+        audio_file_path: str,
+        forced_language: Optional[str] = None,
+        prompt: Optional[str] = None
+    ) -> str:
         """ Transcribe an audio file using MLX
         """
         if prompt is not None:
@@ -494,9 +519,16 @@ class WhisperHF(WhisperPipeline):
             device=self.device,
         )
 
-    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None, prompt: Optional[str] = None) -> str:
+    def transcribe(
+        self,
+        audio_file_path: str,
+        forced_language: Optional[str] = None,
+        prompt: Optional[str] = None
+    ) -> str:
         """ Transcribe an audio file using PyTorch OpenAI Whisper
         """
+        if forced_language is not None:
+            raise NotImplementedError("Language forcing is not supported for Hugging Face")
         if prompt is not None:
             raise NotImplementedError("Prompt is not supported for Hugging Face")
         return self.pipe(audio_file_path, return_timestamps=True)
@@ -526,12 +558,20 @@ class WhisperOpenAI(WhisperPipeline):
         self.models_dir = None
         self.pipe = whisper.load_model("turbo", device="cpu")
 
-    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None, prompt: Optional[str] = None) -> str:
+    def transcribe(
+        self,
+        audio_file_path: str,
+        forced_language: Optional[str] = None,
+        prompt: Optional[str] = None
+    ) -> str:
         """ Transcribe an audio file using PyTorch OpenAI Whisper
         """
+        if forced_language is not None:
+            raise NotImplementedError()
         if prompt is not None:
             logger.info(f"Using prompt: {prompt}")
         return self.pipe.transcribe(audio_file_path, initial_prompt=prompt, word_timestamps=True)
+
 
 class AppleSpeechAnalyzer(WhisperPipeline):
     """ Pipeline to clone, build and run the CLI from
@@ -604,9 +644,19 @@ class AppleSpeechAnalyzer(WhisperPipeline):
         self.results_dir = os.path.join(self.repo_dir, "results")
         os.makedirs(self.results_dir, exist_ok=True)
 
-    def transcribe(self, audio_file_path: str, forced_language: Optional[str] = None) -> str:
+    def transcribe(
+        self,
+        audio_file_path: str,
+        forced_language: Optional[str] = None,
+        prompt: Optional[str] = None
+    ) -> str:
         """ Transcribe an audio file using the Apple Speech Analyzer CLI
         """
+        if forced_language is not None:
+            raise NotImplementedError("Language forcing is not supported for Hugging Face")
+        if prompt is not None:
+            raise NotImplementedError("Prompt is not supported for Hugging Face")
+
         cmd = " ".join([
             self.cli_path,
             "--input-audio-path", audio_file_path,
@@ -767,9 +817,6 @@ class WhisperOpenAIAPI:
 def get_pipeline_cls(cls_name):
     if cls_name == "WhisperKit":
         return WhisperKit
-    elif cls_name == "WhisperKitPro":
-        from whisperkit.pro.pipelines import WhisperKitPro
-        return WhisperKitPro
     elif cls_name in ["whisper.cpp", "WhisperCpp"]:
         return WhisperCpp
     elif cls_name in ["WhisperMLX", "mlx-whisper"]:
