@@ -204,6 +204,33 @@ class WavLMEncoderLayer(nn.Module):
         return self.final_layer_norm(hidden_states + self.feed_forward(hidden_states))
 
 
+class WavLMEncoderLayerWithDefaultSelfAttention(WavLMEncoderLayer):
+    def __init__(self, config: WavLMConfig):
+        super().__init__(config)
+        self.attention = Attention(
+            embed_dim=config.hidden_size,
+            n_heads=config.num_attention_heads,
+            attention_type=AttentionType.SelfAttention,
+        )
+        self.attention._register_load_state_dict_pre_hook(
+            argmaxtools_utils.linear_to_conv2d_map_attention
+        )
+
+    def forward(
+        self,
+        hidden_states,
+        attention_mask=None,
+    ):
+        key_padding_mask = (1. - attention_mask) * -1e4 if attention_mask is not None else None
+        residual = hidden_states
+        hidden_states = self.attention(
+            hidden_states,
+            key_padding_mask=key_padding_mask,
+        )[0]
+        hidden_states = self.layer_norm(residual + hidden_states)
+        return self.final_layer_norm(hidden_states + self.feed_forward(hidden_states))
+
+
 class WavLMEncoder(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -230,6 +257,33 @@ class WavLMEncoder(nn.Module):
                 hidden_states,
                 attention_mask=attention_mask,
                 position_bias=self.relative_position_bias,
+            )
+
+        intermediate_outputs.append(hidden_states)
+        return hidden_states, intermediate_outputs
+
+
+class WavLMEncoderWithDefaultSelfAttention(WavLMEncoder):
+    def __init__(self, config):
+        super().__init__(config)
+        self.layers = nn.ModuleList([
+            WavLMEncoderLayerWithDefaultSelfAttention(config)
+            for _ in range(config.num_hidden_layers)
+        ])
+
+    def forward(self, hidden_states, positional_embeddings, attention_mask=None):
+        if attention_mask is not None:
+            hidden_states = hidden_states * attention_mask[:, None, None, :]
+        hidden_states = hidden_states + positional_embeddings
+
+        intermediate_outputs = []
+        hidden_states = self.layer_norm(hidden_states)
+
+        for _, layer in enumerate(self.layers):
+            intermediate_outputs.append(hidden_states)
+            hidden_states = layer(
+                hidden_states,
+                attention_mask=attention_mask,
             )
 
         intermediate_outputs.append(hidden_states)
@@ -270,6 +324,12 @@ class WavLM(nn.Module):
             positional_embeddings,
             attention_mask=attention_mask,
         )
+
+
+class WavLMWithDefaultSelfAttention(WavLM):
+    def __init__(self, config: WavLMConfig):
+        super().__init__(config)
+        self.encoder = WavLMEncoderWithDefaultSelfAttention(config)
 
 
 class WavLMWithoutPreprocessor(nn.Module):
