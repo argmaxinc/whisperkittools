@@ -58,7 +58,7 @@ class SSeRiouSS(nn.Module):
         super().__init__()
         # only supports TorchAudio compatible local models
 
-        self.wavlm = wavlm.WavLM(self.WAVLM_DEFAULT_CONFIG)
+        self.wavlm = wavlm.WavLMWithDefaultSelfAttention(self.WAVLM_DEFAULT_CONFIG)
         self.sliding_window_stride = sliding_window_stride or SLIDING_WINDOW_STRIDE
 
         wavlm_dim = self.WAVLM_DEFAULT_CONFIG.hidden_size
@@ -109,11 +109,13 @@ class SSeRiouSS(nn.Module):
 
         argmax_model = SSeRiouSS(sliding_window_stride=sliding_window_stride or 5)
 
+        hf_state_dict = wavlm_torchaudio2hf_dict_adjustment(
+            pyannote_segmentation_model.wav2vec.state_dict()
+        )
+
         # Load state dicts
         argmax_model.wavlm.load_state_dict(
-            wavlm_torchaudio2hf_dict_adjustment(
-                pyannote_segmentation_model.wav2vec.state_dict()
-            )
+            hf_state_dict
         )
 
         argmax_model.wavlm_layer_weights.data = pyannote_segmentation_model.wav2vec_weights.data
@@ -128,14 +130,6 @@ class SSeRiouSS(nn.Module):
 
         argmax_model.classifier.load_state_dict(
             pyannote_segmentation_model.classifier.state_dict()
-        )
-
-        # Precompute relative positional embeddings (This now becomes the maximum sequence length)
-        argmax_model.wavlm.encoder.register_buffer(
-            "relative_position_bias",
-            pyannote_segmentation_model.wav2vec.encoder.transformer.layers[0].attention.compute_bias(
-                TEST_SEQ_LEN, TEST_SEQ_LEN
-            )
         )
 
         return argmax_model

@@ -25,7 +25,7 @@ setup(
             "mlx-whisper",
         ],
         "diarization": [
-            "pyannote-audio",
+            "pyannote-audio @ git+https://github.com/pyannote/pyannote-audio@c97b3d07200d53d797a8d8045a26085ef8eb2a1e",  # noqa: E501
         ],
         "evals": [
             "jiwer",

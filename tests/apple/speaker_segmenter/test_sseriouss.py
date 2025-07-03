@@ -8,7 +8,6 @@ import os
 import unittest
 
 import torch
-
 from argmaxtools import test_utils as argmaxtools_test_utils
 from argmaxtools.utils import get_logger
 
@@ -21,14 +20,11 @@ logger = get_logger(__name__)
 # Register the torch ops for the speaker segmenter
 register_torch_ops_for_speaker_segmenter()
 
-TEST_CHECKPOINT_PATH = "pytorch_model.bin"
+TEST_CHECKPOINT_PATH = None
 TEST_SLIDING_WINDOW_STRIDE = 5  # s
 TEST_CACHE_DIR = os.getenv("TEST_CACHE_DIR", None) or "/tmp"
 TEST_TORCH_DTYPE = torch.float32
 TEST_PSNR_THR = 35
-
-# Quantization bits for Core ML
-argmaxtools_test_utils.TEST_DEFAULT_NBITS = None
 
 # Core ML precision
 argmaxtools_test_utils.TEST_COREML_PRECISION = ct.precision.FLOAT16
@@ -43,7 +39,7 @@ TEST_SEQ_LEN = 999  # 20s of audio at 16kHz yields 999 seqlen after the Convolut
 # Note: SpeakerSegmenter models are optimized for CPU inference at the moment
 argmaxtools_test_utils.TEST_MIN_SPEEDUP_VS_CPU = -1
 argmaxtools_test_utils.TEST_SKIP_SPEED_TESTS = True
-argmaxtools_test_utils.TEST_COMPUTE_UNIT = ct.ComputeUnit.CPU_AND_NE
+argmaxtools_test_utils.TEST_COMPUTE_UNIT = ct.ComputeUnit.CPU_AND_GPU
 argmaxtools_test_utils.TEST_MIN_DEPLOYMENT_TARGET = ct.target.macOS14
 argmaxtools_test_utils.TEST_COMPILE_COREML = True
 argmaxtools_test_utils.TEST_DEFAULT_NBITS = 8
@@ -93,6 +89,7 @@ def main(args):
     TEST_SLIDING_WINDOW_STRIDE = args.test_sliding_window_stride
     logger.info(f"Testing {TEST_CHECKPOINT_PATH}")
     logger.info(f"Sliding window stride: {TEST_SLIDING_WINDOW_STRIDE}s")
+    logger.info(f"Using checkpoint from: {TEST_CHECKPOINT_PATH}")
 
     with argmaxtools_test_utils._get_test_cache_dir(
         args.persistent_cache_dir
@@ -115,7 +112,9 @@ if __name__ == "__main__":
     parser.add_argument("--persistent-cache-dir", default=None, type=str)
     parser.add_argument(
         "--local-checkpoint-path",
-        default=TEST_CHECKPOINT_PATH,
+        required=True,
+        type=str,
+        help="Path to the local checkpoint file",
     )
     parser.add_argument(
         "--test-sliding-window-stride",
