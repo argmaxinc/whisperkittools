@@ -11,7 +11,7 @@
 # whisperkittools
 </div>
 
-+![Unit and Functional Tests](https://github.com/argmaxinc/whisperkittools/actions/workflows/public-ci.yml/badge.svg)
+[![Unit and Functional Tests](https://github.com/argmaxinc/whisperkittools/actions/workflows/public-ci.yml/badge.svg)](https://github.com/argmaxinc/whisperkittools/actions/workflows/public-ci.yml)
 
 Python tools for [WhisperKit](https://github.com/argmaxinc/whisperkit) and [WhisperKitAndroid](https://github.com/argmaxinc/WhisperKitAndroid)
 - Convert PyTorch Whisper models to WhisperKit format

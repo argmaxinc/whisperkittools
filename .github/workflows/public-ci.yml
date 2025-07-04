@@ -32,6 +32,11 @@ jobs:
           $(which python) -c \
               "from argmaxtools.test_utils import AppleSiliconContextMixin; \
               print(AppleSiliconContextMixin().os_spec())"
+    - name: Lint
+      shell: bash -el {0}
+      run: |
+          pip install flake8
+          $(which flake8) whisperkit tests
     - name: Word Timestamps Unit Tests
       shell: bash -el {0}
       run: |
@@ -52,8 +57,3 @@ jobs:
       shell: bash -el {0}
       run: |
           $(which python) tests/test_evaluate.py --dataset common_voice_17_0-debug-zip --pipeline WhisperKit --language-subset en
-    - name: Lint
-      shell: bash -el {0}
-      run: |
-          pip install flake8
-          $(which flake8) whisperkit tests
