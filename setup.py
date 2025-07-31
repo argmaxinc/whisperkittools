@@ -15,7 +15,8 @@ setup(
     author='Argmax, Inc.',
     install_requires=[
         "argmaxtools",
-        "transformers",
+        # Whisper TextDecoder model generation fails
+        "transformers==4.53",
         "huggingface-hub",
         "torch==2.6.0",
     ],
