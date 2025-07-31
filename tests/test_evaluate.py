@@ -35,7 +35,7 @@ TEST_MODEL_VERSION = os.getenv("TEST_MODEL_VERSION", None) or \
     "openai/whisper-tiny.en"
 TEST_UPLOAD_RESULTS = os.getenv("TEST_UPLOAD_RESULTS", None) or False
 AVG_WER_SANITY_CHECK_THR = 0.5
-LANGUAGE_SUBSET = None
+TEST_LANGUAGE_SUBSET = os.getenv("TEST_LANGUAGE_SUBSET", None) or None
 
 
 class TestWhisperPipelineEvaluate(unittest.TestCase):
@@ -73,7 +73,7 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
                 num_samples=TEST_NUM_SAMPLES,
                 cache_dir=TEST_CACHE_DIR,
                 num_proc=TEST_NUM_PROC,
-                language_subset=LANGUAGE_SUBSET),
+                language_subset=TEST_LANGUAGE_SUBSET),
             "metadata": {
                 "num_samples": TEST_NUM_SAMPLES,
                 "num_proc": TEST_NUM_PROC,
@@ -106,7 +106,7 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
                 TEST_MODEL_VERSION.replace("/", "_"),
                 TEST_DATASET_NAME,
                 "forced" if whisperkit.evaluate.evaluate.FORCE_LANGUAGE else "",
-                LANGUAGE_SUBSET if LANGUAGE_SUBSET else ""
+                TEST_LANGUAGE_SUBSET if TEST_LANGUAGE_SUBSET else ""
             )
             results_fname = datetime.datetime.now().astimezone(
                 ).strftime("%Y-%m-%d_%H:%M:%S_GMT%z") + ".json"
@@ -132,7 +132,7 @@ class TestWhisperPipelineEvaluate(unittest.TestCase):
 def main(args):
     global TEST_DATASET_NAME, TEST_PIPELINE, TEST_NUM_SAMPLES, TEST_CACHE_DIR, \
            TEST_MODEL_VERSION, TEST_CODE_COMMIT_HASH, TEST_MODEL_COMMIT_HASH, \
-           TEST_NUM_PROC, TEST_UPLOAD_RESULTS, LANGUAGE_SUBSET
+           TEST_NUM_PROC, TEST_UPLOAD_RESULTS, TEST_LANGUAGE_SUBSET
     TEST_DATASET_NAME = args.dataset
     TEST_PIPELINE = args.pipeline
     TEST_NUM_SAMPLES = args.num_samples
@@ -142,7 +142,7 @@ def main(args):
     TEST_MODEL_COMMIT_HASH = args.model_commit_hash
     TEST_NUM_PROC = args.num_proc
     TEST_UPLOAD_RESULTS = args.upload_results
-    LANGUAGE_SUBSET = args.language_subset
+    TEST_LANGUAGE_SUBSET = args.language_subset
 
     # Force language option
     whisperkit.evaluate.evaluate.FORCE_LANGUAGE = args.force_language
