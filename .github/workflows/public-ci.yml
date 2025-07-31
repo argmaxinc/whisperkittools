@@ -45,14 +45,14 @@ jobs:
       shell: bash -el {0}
       run: |
           TEST_DEV=cpu $(which python) -m unittest \
-          tests.apple.test_text_decoder.TestWhisperTextDecoder.test_torch2torch_correctness \
-          tests.apple.test_text_decoder.TestWhisperTextDecoder.test_torch2coreml_correctness_and_speedup 
+          tests.test_text_decoder.TestWhisperTextDecoder.test_torch2torch_correctness \
+          tests.test_text_decoder.TestWhisperTextDecoder.test_torch2coreml_correctness_and_speedup
     - name: Audio Encoder Unit Tests
       shell: bash -el {0}
       run: |
           TEST_DEV=cpu $(which python) -m unittest \
-          tests.apple.test_audio_encoder.TestWhisperAudioEncoder.test_torch2torch_correctness \
-          tests.apple.test_audio_encoder.TestWhisperAudioEncoder.test_torch2coreml_correctness_and_speedup 
+          tests.test_audio_encoder.TestWhisperAudioEncoder.test_torch2torch_correctness \
+          tests.test_audio_encoder.TestWhisperAudioEncoder.test_torch2coreml_correctness_and_speedup
     - name: Evaluate Unit Test
       shell: bash -el {0}
       run: |
