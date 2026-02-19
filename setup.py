@@ -19,6 +19,8 @@ setup(
         "transformers==4.53",
         "huggingface-hub",
         "torch==2.5.0",
+        # NumPy 2.4.0+ breaks CoreML conversion with torch 2.5.0
+        "numpy<2.4.0",
     ],
     extras_require={
         "pipelines": [
