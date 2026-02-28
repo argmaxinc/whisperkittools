@@ -49,11 +49,9 @@ class TestWhisperAudioEncoder(
         cls.test_cache_dir = TEST_CACHE_DIR
 
         # Original model
-        orig_torch_model = (
-            modeling_whisper.WhisperForConditionalGeneration.from_pretrained(
-                TEST_WHISPER_VERSION,
-                torch_dtype=TEST_TORCH_DTYPE,
-            )
+        orig_torch_model = test_utils.load_whisper_model(
+            TEST_WHISPER_VERSION,
+            torch_dtype=TEST_TORCH_DTYPE,
         )
 
         cls.orig_torch_model = (
