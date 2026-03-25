@@ -184,7 +184,7 @@ compress.palettize.NUM_MIXED_BIT_RECIPES = 1
 compress.palettize.TEST_BATCH_SIZE = 1
 compress.palettize.INVERTED_RESULT_THR = 0.25
 compress.palettize.SPARSE_OUTLIER_DECOMPOSITION = True
-compress.sparse_outlier.OUTLIER_NUM_STD = 3.0
+compress.sparse_outlier.OUTLIER_NUM_STD = 2.2
 compress.palettize.PALETTIZATION_GROUP_SIZE = None
 
 
