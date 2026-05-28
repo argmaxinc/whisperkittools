@@ -133,6 +133,29 @@ def cli():
             "Disabling token-level timestamps due to missing alignment_heads in distil-whisper-* models"
         )
         args.disable_token_timestamps = True
+    else:
+        # Some distilled models are not named "distil-*" yet still carry the
+        # original (e.g. large-v3) generation_config, whose alignment_heads
+        # reference decoder layers that no longer exist after distillation.
+        # Configuring token-level timestamps then crashes with an IndexError in
+        # compute_alignment_heads_attention_weights. Detect this from the config
+        # (rather than the model name) and disable token timestamps.
+        try:
+            from transformers import GenerationConfig, WhisperConfig
+            decoder_layers = WhisperConfig.from_pretrained(
+                args.model_version).decoder_layers
+            alignment_heads = getattr(
+                GenerationConfig.from_pretrained(args.model_version),
+                "alignment_heads", None,
+            ) or []
+            if any(layer >= decoder_layers for layer, _head in alignment_heads):
+                logger.info(
+                    "Disabling token-level timestamps: alignment_heads reference "
+                    f"decoder layers beyond decoder_layers={decoder_layers}"
+                )
+                args.disable_token_timestamps = True
+        except Exception as e:
+            logger.warning(f"alignment_heads validation skipped: {e}")
 
     # Generate WhisperTextDecoder
     args.test_seq_len = args.text_decoder_max_sequence_length
